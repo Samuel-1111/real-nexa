@@ -1,0 +1,1 @@
+export default function NotFound(){return <main className="authShell"><div className="authCard"><div className="brand">NEXA</div><h1>Page not found.</h1><p className="muted">That NEXA destination doesn't exist.</p><button className="cta" onClick={()=>location.assign("/")}>Return to NEXA</button></div></main>}
