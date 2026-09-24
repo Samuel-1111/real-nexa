@@ -7,7 +7,7 @@ type Task={id:string;title:string;description:string|null;due_at:string|null;com
 type Event={id:string;title:string;description:string|null;starts_at:string;ends_at:string;location:string|null};
 type Message={id:string;role:"user"|"assistant";content:string;created_at:string};
 
-const supabase=createClient();
+function getSupabase(){ return createClient(); }
 
 function Orb({small=false}:{small?:boolean}){return <div className={"orb "+(small?"orbSmall":"")}><span>N</span></div>}
 function Icon({children}:{children:React.ReactNode}){return <div className="iconBox">{children}</div>}
@@ -48,11 +48,11 @@ function Home({name,tasks,events,setTab,onComplete}:{name:string;tasks:Task[];ev
 
 function Assistant({userId}:{userId:string}){
  const [messages,setMessages]=useState<Message[]>([]); const [text,setText]=useState(""); const [busy,setBusy]=useState(false);
- useEffect(()=>{(async()=>{const {data:c}=await supabase.from("conversations").select("id").eq("user_id",userId).order("updated_at",{ascending:false}).limit(1).maybeSingle();if(c){const {data:m}=await supabase.from("messages").select("id,role,content,created_at").eq("conversation_id",c.id).in("role",["user","assistant"]).order("created_at",{ascending:true}).limit(80);setMessages((m||[]) as Message[])}})()},[userId]);
+ useEffect(()=>{(async()=>{const {data:c}=await getSupabase().from("conversations").select("id").eq("user_id",userId).order("updated_at",{ascending:false}).limit(1).maybeSingle();if(c){const {data:m}=await getSupabase().from("messages").select("id,role,content,created_at").eq("conversation_id",c.id).in("role",["user","assistant"]).order("created_at",{ascending:true}).limit(80);setMessages((m||[]) as Message[])}})()},[userId]);
  async function send(value=text){
   const message=value.trim();if(!message||busy)return;setText("");setBusy(true);
   const optimistic:Message={id:crypto.randomUUID(),role:"user",content:message,created_at:new Date().toISOString()};setMessages(m=>[...m,optimistic]);
-  const {data,error}=await supabase.functions.invoke("nexa-assistant",{body:{message}});
+  const {data,error}=await getSupabase().functions.invoke("nexa-assistant",{body:{message}});
   if(error){setMessages(m=>[...m,{id:crypto.randomUUID(),role:"assistant",content:"I couldn't complete that request. Please try again.",created_at:new Date().toISOString()}]);}
   else if(data?.reply){setMessages(m=>[...m,{id:data.message_id||crypto.randomUUID(),role:"assistant",content:data.reply,created_at:new Date().toISOString()}]);}
   setBusy(false);
@@ -104,17 +104,17 @@ function Premium({setTab}:{setTab:(x:Tab)=>void}){return <div className="premium
 
 function AddTask({onClose,onCreated}:{onClose:()=>void;onCreated:(task:Task)=>void}){
  const [title,setTitle]=useState("");const [due,setDue]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");
- async function create(e:React.FormEvent){e.preventDefault();if(!title.trim())return;setBusy(true);const {data,error}=await supabase.from("tasks").insert({user_id:(await supabase.auth.getUser()).data.user?.id,title:title.trim(),due_at:due?new Date(due).toISOString():null}).select().single();if(error)setError(error.message);else{onCreated(data as Task);onClose()}setBusy(false)}
+ async function create(e:React.FormEvent){e.preventDefault();if(!title.trim())return;setBusy(true);const {data,error}=await getSupabase().from("tasks").insert({user_id:(await getSupabase().auth.getUser()).data.user?.id,title:title.trim(),due_at:due?new Date(due).toISOString():null}).select().single();if(error)setError(error.message);else{onCreated(data as Task);onClose()}setBusy(false)}
  return <div className="modalBackdrop" onMouseDown={onClose}><form className="modal" onSubmit={create} onMouseDown={e=>e.stopPropagation()}><div className="modalHead"><h3>New task</h3><button type="button" onClick={onClose}>×</button></div><input autoFocus required placeholder="What needs to be done?" value={title} onChange={e=>setTitle(e.target.value)}/><input type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/>{error&&<div className="authError">{error}</div>}<button className="cta" disabled={busy}>{busy?"Saving…":"Add Task"}</button></form></div>
 }
 
 export default function Page(){
  const [intro,setIntro]=useState<"splash"|"onboarding"|"app">("splash"); const [tab,setTab]=useState<Tab>("home");
  const [user,setUser]=useState<{id:string;name:string;email:string} | null>(null); const [tasks,setTasks]=useState<Task[]>([]); const [events,setEvents]=useState<Event[]>([]); const [addTask,setAddTask]=useState(false); const [loading,setLoading]=useState(true);
- useEffect(()=>{const timer=setTimeout(async()=>{const {data}=await supabase.auth.getUser();if(data.user){const name=(data.user.user_metadata?.display_name as string)||data.user.email?.split("@")[0]||"Sam";setUser({id:data.user.id,name,email:data.user.email||""});setIntro("app")}else setIntro("onboarding");setLoading(false)},900);const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>{if(s?.user){const name=(s.user.user_metadata?.display_name as string)||s.user.email?.split("@")[0]||"Sam";setUser({id:s.user.id,name,email:s.user.email||""});setIntro("app")} });return()=>{clearTimeout(timer);subscription.unsubscribe()}},[]);
- useEffect(()=>{if(!user)return;(async()=>{const [{data:t},{data:e},{data:p}]=await Promise.all([supabase.from("tasks").select("id,title,description,due_at,completed_at,priority").eq("user_id",user.id).order("due_at",{ascending:true,nullsFirst:false}).limit(100),supabase.from("calendar_events").select("id,title,description,starts_at,ends_at,location").eq("user_id",user.id).order("starts_at",{ascending:true}).limit(100),supabase.from("profiles").select("display_name").eq("id",user.id).maybeSingle()]);setTasks((t||[]) as Task[]);setEvents((e||[]) as Event[]);if(p?.display_name&&p.display_name!==user.name)setUser(u=>u?{...u,name:p.display_name}:u)})()},[user?.id]);
- async function completeTask(id:string){const now=new Date().toISOString();const {error}=await supabase.from("tasks").update({completed_at:now,updated_at:now}).eq("id",id);if(!error)setTasks(ts=>ts.map(t=>t.id===id?{...t,completed_at:now}:t))}
- async function signOut(){await supabase.auth.signOut();setUser(null);setIntro("onboarding");setTab("home")}
+ useEffect(()=>{const timer=setTimeout(async()=>{const {data}=await getSupabase().auth.getUser();if(data.user){const name=(data.user.user_metadata?.display_name as string)||data.user.email?.split("@")[0]||"Sam";setUser({id:data.user.id,name,email:data.user.email||""});setIntro("app")}else setIntro("onboarding");setLoading(false)},900);const {data:{subscription}}=getSupabase().auth.onAuthStateChange((_e,s)=>{if(s?.user){const name=(s.user.user_metadata?.display_name as string)||s.user.email?.split("@")[0]||"Sam";setUser({id:s.user.id,name,email:s.user.email||""});setIntro("app")} });return()=>{clearTimeout(timer);subscription.unsubscribe()}},[]);
+ useEffect(()=>{if(!user)return;(async()=>{const [{data:t},{data:e},{data:p}]=await Promise.all([getSupabase().from("tasks").select("id,title,description,due_at,completed_at,priority").eq("user_id",user.id).order("due_at",{ascending:true,nullsFirst:false}).limit(100),getSupabase().from("calendar_events").select("id,title,description,starts_at,ends_at,location").eq("user_id",user.id).order("starts_at",{ascending:true}).limit(100),getSupabase().from("profiles").select("display_name").eq("id",user.id).maybeSingle()]);setTasks((t||[]) as Task[]);setEvents((e||[]) as Event[]);if(p?.display_name&&p.display_name!==user.name)setUser(u=>u?{...u,name:p.display_name}:u)})()},[user?.id]);
+ async function completeTask(id:string){const now=new Date().toISOString();const {error}=await getSupabase().from("tasks").update({completed_at:now,updated_at:now}).eq("id",id);if(!error)setTasks(ts=>ts.map(t=>t.id===id?{...t,completed_at:now}:t))}
+ async function signOut(){await getSupabase().auth.signOut();setUser(null);setIntro("onboarding");setTab("home")}
  if(loading||intro==="splash")return <main className="stage"><div className="phone splash"><div className="status">9:41 <span>▮▮▮ ◼</span></div><div className="splashGlow"/><Orb/><div className="logoText">N E X A</div><p>Your Personal Assistant<br/>for a Smarter Life</p><div className="loader"/><small>Organize · Plan · Achieve</small></div></main>;
  if(!user&&intro==="onboarding")return <main className="stage"><div className="phone onboarding"><div className="status">9:41 <span>▮▮▮ ◼</span></div><span className="brand">NEXA</span><h1>More than<br/>just an <b>assistant.</b></h1><p>NEXA helps you stay organized,<br/>boost your productivity and<br/>handle everyday tasks — effortlessly.</p><div className="deviceArt"><Orb/><span>▣</span><span>✉</span><span>▣</span></div><button className="cta" onClick={()=>location.assign("/auth?mode=signup")}>Get Started&nbsp; →</button><small>Already have an account? <button className="inlineLink" onClick={()=>location.assign("/auth?mode=login")}>Log In</button></small></div></main>;
  if(!user) return null;
