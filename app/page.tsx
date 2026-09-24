@@ -118,11 +118,11 @@ export default function Page(){
  if(loading||intro==="splash")return <main className="stage"><div className="phone splash"><div className="status">9:41 <span>▮▮▮ ◼</span></div><div className="splashGlow"/><Orb/><div className="logoText">N E X A</div><p>Your Personal Assistant<br/>for a Smarter Life</p><div className="loader"/><small>Organize · Plan · Achieve</small></div></main>;
  if(!user&&intro==="onboarding")return <main className="stage"><div className="phone onboarding"><div className="status">9:41 <span>▮▮▮ ◼</span></div><span className="brand">NEXA</span><h1>More than<br/>just an <b>assistant.</b></h1><p>NEXA helps you stay organized,<br/>boost your productivity and<br/>handle everyday tasks — effortlessly.</p><div className="deviceArt"><Orb/><span>▣</span><span>✉</span><span>▣</span></div><button className="cta" onClick={()=>location.assign("/auth?mode=signup")}>Get Started&nbsp; →</button><small>Already have an account? <button className="inlineLink" onClick={()=>location.assign("/auth?mode=login")}>Log In</button></small></div></main>;
  return <main className="app"><div className="phone"><div className="status">9:41 <span>▮▮▮ ◼</span></div>
-  {tab==="home"&&<Home name={user.name} tasks={tasks} events={events} setTab={setTab} onComplete={completeTask}/>}
-  {tab==="assistant"&&<Assistant userId={user.id}/>}
+  {tab==="home"&&<Home name={currentUser.name} tasks={tasks} events={events} setTab={setTab} onComplete={completeTask}/>}
+  {tab==="assistant"&&<Assistant userId={currentUser.id}/>}
   {tab==="tasks"&&<Tasks tasks={tasks} onComplete={completeTask} onAdd={()=>setAddTask(true)}/>}
   {tab==="calendar"&&<Calendar events={events}/>}
-  {tab==="profile"&&<Profile name={user.name} email={user.email} setTab={setTab} onSignOut={signOut}/>}
+  {tab==="profile"&&<Profile name={user.name} email={currentUser.email} setTab={setTab} onSignOut={signOut}/>}
   {tab==="premium"&&<Premium setTab={setTab}/>}
   {tab!=="premium"&&<Bottom tab={tab} setTab={setTab}/>}
   {addTask&&<AddTask onClose={()=>setAddTask(false)} onCreated={task=>setTasks(ts=>[task,...ts])}/>}
