@@ -28,7 +28,7 @@ body {
 
 .phone {
   width: min(100%, 430px);
-  height: min(100dvh - 32px, 900px);
+  height: min(calc(100dvh - 32px), 900px);
   min-height: 0;
   max-height: none;
   overflow: hidden auto;
@@ -274,4 +274,15 @@ body {
   .phone {
     max-height: calc(100dvh - 32px);
   }
+}
+
+html, body {
+  width: 100%;
+}
+body {
+  min-height: 100svh;
+  min-height: 100dvh;
+}
+button, input {
+  -webkit-tap-highlight-color: transparent;
 }
