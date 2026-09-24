@@ -3,3 +3,275 @@
 @media(max-width:850px){
  .stage,.app{padding:0;min-height:100dvh}.stage{display:block}.stage .phone{width:100%;min-height:100dvh;height:100dvh;border-radius:0;border:0}.stage .phone.onboarding{display:flex}.phone{width:100%;min-height:100dvh;height:100dvh;border-radius:0;border:0}.app{display:block}.app>.phone{height:100dvh;min-height:100dvh}.onboarding{padding-top:48px}.deviceArt{height:260px}.phone{padding-left:20px;padding-right:20px}.assistantBody{overflow-y:auto;max-height:calc(100dvh - 170px)}}
 @media(min-width:851px){.phone{max-height:calc(100dvh - 40px)}}
+
+
+/* Responsive viewport + installable app polish */
+html {
+  min-height: 100%;
+  background: #020817;
+  overscroll-behavior-x: none;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: #020817;
+}
+
+.stage,
+.app {
+  width: 100%;
+  min-height: 100dvh;
+  padding: clamp(0px, 2.5vw, 28px);
+  padding-bottom: max(clamp(0px, 2.5vw, 28px), env(safe-area-inset-bottom));
+}
+
+.phone {
+  width: min(100%, 430px);
+  height: min(100dvh - 32px, 900px);
+  min-height: 0;
+  max-height: none;
+  overflow: hidden auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.phone::-webkit-scrollbar {
+  display: none;
+}
+
+.screen {
+  min-height: 100%;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.onboarding {
+  min-height: 100%;
+  overflow: visible;
+}
+
+.onboarding > .cta {
+  flex-shrink: 0;
+}
+
+.deviceArt {
+  flex: 0 0 auto;
+}
+
+.bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+  height: calc(74px + env(safe-area-inset-bottom));
+}
+
+.composer {
+  bottom: calc(18px + env(safe-area-inset-bottom));
+}
+
+.installBanner {
+  position: fixed;
+  z-index: 1000;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: min(620px, calc(100vw - 24px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #315cff;
+  border-radius: 18px;
+  background: linear-gradient(140deg, #071733f5, #110b2af5);
+  box-shadow: 0 18px 50px #0009, 0 0 30px #4a4cff33;
+  backdrop-filter: blur(16px);
+}
+
+.installIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  font-weight: 900;
+  font-style: italic;
+  background: linear-gradient(135deg, #8d4bff, #334dff 55%, #00bfff);
+  border: 1px solid #66b6ff;
+  box-shadow: 0 0 18px #5a5cff66;
+}
+
+.installCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.installCopy strong {
+  font-size: 12px;
+}
+
+.installCopy span {
+  color: #aeb9d4;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.installButton {
+  white-space: nowrap;
+  padding: 10px 14px;
+  border-radius: 22px;
+  background: linear-gradient(100deg, #ad3fff, #267cff);
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 7px 22px #573cff44;
+}
+
+.installClose {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #9eabc6;
+  font-size: 20px;
+}
+
+@media (max-width: 850px) {
+  .stage,
+  .app {
+    padding: 0;
+    padding-bottom: 0;
+    display: block;
+  }
+
+  .phone,
+  .stage .phone,
+  .app > .phone {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .stage .phone {
+    min-height: 100dvh;
+  }
+
+  .phone section {
+    margin-top: clamp(22px, 6vw, 28px);
+  }
+
+  .phone h1 {
+    font-size: clamp(24px, 7vw, 30px);
+  }
+
+  .quickGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(6px, 2vw, 10px);
+  }
+
+  .quickGrid button {
+    min-width: 0;
+  }
+
+  .pills {
+    flex-wrap: wrap;
+  }
+
+  .pills button {
+    flex: 1 1 30%;
+    min-width: 0;
+    padding-inline: 10px;
+  }
+
+  .planGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .planCard {
+    min-width: 0;
+  }
+
+  .installBanner {
+    width: calc(100vw - 20px);
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    left: 10px;
+    right: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .phone {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .brand {
+    font-size: 18px;
+  }
+
+  .heroCard {
+    padding: 13px;
+  }
+
+  .iconBox {
+    width: 38px;
+    height: 38px;
+  }
+
+  .planGrid {
+    gap: 5px;
+  }
+
+  .planCard {
+    padding: 8px 5px;
+  }
+
+  .planCard span {
+    font-size: 12px;
+  }
+
+  .planCard em {
+    font-size: 7px;
+  }
+
+  .installBanner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .installClose {
+    display: none;
+  }
+
+  .installCopy span {
+    display: none;
+  }
+}
+
+@media (max-height: 680px) {
+  .onboarding h1 {
+    margin-top: 28px;
+  }
+
+  .deviceArt {
+    height: clamp(150px, 34vh, 220px);
+    margin-block: 10px;
+  }
+
+  .assistantBody {
+    margin-top: 18px;
+  }
+
+  .premium h1 {
+    margin-top: 130px;
+  }
+}
+
+@media (min-width: 851px) {
+  .phone {
+    max-height: calc(100dvh - 32px);
+  }
+}
