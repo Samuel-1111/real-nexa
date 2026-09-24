@@ -85,3 +85,17 @@ create index if not exists goals_user_id_idx on public.goals(user_id);
 create index if not exists notes_user_id_idx on public.notes(user_id);
 create index if not exists messages_user_id_idx on public.messages(user_id);
 create index if not exists messages_conversation_created_idx on public.messages(conversation_id,created_at);
+
+revoke all on table public.profiles,public.preferences,public.tasks,public.calendar_events,public.reminders,public.notes,public.goals,public.conversations,public.messages,public.subscriptions from anon;
+revoke all on table public.profiles,public.preferences,public.tasks,public.calendar_events,public.reminders,public.notes,public.goals,public.conversations,public.messages,public.subscriptions from authenticated;
+
+grant select,update on public.profiles to authenticated;
+grant select,update on public.preferences to authenticated;
+grant select,insert,update,delete on public.tasks to authenticated;
+grant select,insert,update,delete on public.calendar_events to authenticated;
+grant select,insert,update,delete on public.reminders to authenticated;
+grant select,insert,update,delete on public.notes to authenticated;
+grant select,insert,update,delete on public.goals to authenticated;
+grant select,insert,update,delete on public.conversations to authenticated;
+grant select,insert on public.messages to authenticated;
+grant select on public.subscriptions to authenticated;
