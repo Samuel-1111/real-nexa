@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import InstallPrompt from "@/components/install-prompt";
 
 type Tab="home"|"assistant"|"tasks"|"calendar"|"profile"|"premium";
 type PlanKey="premium"|"gold"|"elite";
@@ -139,7 +140,7 @@ export default function Page(){
  if(!user&&intro==="onboarding")return <main className="stage"><div className="phone onboarding"><div className="status">9:41 <span>▮▮▮ ◼</span></div><span className="brand">NEXA</span><h1>More than<br/>just an <b>assistant.</b></h1><p>NEXA helps you stay organized,<br/>boost your productivity and<br/>handle everyday tasks — effortlessly.</p><div className="deviceArt"><Orb/><span>▣</span><span>✉</span><span>▣</span></div><button className="cta" onClick={()=>location.assign("/auth?mode=signup")}>Get Started&nbsp; →</button><small>Already have an account? <button className="inlineLink" onClick={()=>location.assign("/auth?mode=login")}>Log In</button></small></div></main>;
  if(!user) return null;
  const currentUser=user;
- return <main className="app"><div className="phone"><div className="status">9:41 <span>▮▮▮ ◼</span></div>
+ return <main className="app"><div className="phone"><InstallPrompt/><div className="status">9:41 <span>▮▮▮ ◼</span></div>
   {tab==="home"&&<Home name={currentUser.name} tasks={tasks} events={events} setTab={setTab} onComplete={completeTask}/>}
   {tab==="assistant"&&<Assistant userId={currentUser.id} onChanged={()=>setDataVersion(v=>v+1)}/>}
   {tab==="tasks"&&<Tasks tasks={tasks} onComplete={completeTask} onAdd={()=>setAddTask(true)}/>}
