@@ -53,15 +53,15 @@ function Home({name,tasks,events,setTab,onComplete}:{name:string;tasks:Task[];ev
  </div>
 }
 
-function Assistant({userId}:{userId:string}){
- const [messages,setMessages]=useState<Message[]>([]); const [text,setText]=useState(""); const [busy,setBusy]=useState(false);
- useEffect(()=>{(async()=>{const {data:c}=await getSupabase().from("conversations").select("id").eq("user_id",userId).order("updated_at",{ascending:false}).limit(1).maybeSingle();if(c){const {data:m}=await getSupabase().from("messages").select("id,role,content,created_at").eq("conversation_id",c.id).in("role",["user","assistant"]).order("created_at",{ascending:true}).limit(80);setMessages((m||[]) as Message[])}})()},[userId]);
+function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}){
+ const [messages,setMessages]=useState<Message[]>([]); const [text,setText]=useState(""); const [busy,setBusy]=useState(false); const [conversationId,setConversationId]=useState<string|null>(null);
+ useEffect(()=>{(async()=>{const {data:c}=await getSupabase().from("conversations").select("id").eq("user_id",userId).order("updated_at",{ascending:false}).limit(1).maybeSingle();if(c){setConversationId(c.id);const {data:m}=await getSupabase().from("messages").select("id,role,content,created_at").eq("conversation_id",c.id).in("role",["user","assistant"]).order("created_at",{ascending:true}).limit(80);setMessages((m||[]) as Message[])}})()},[userId]);
  async function send(value=text){
   const message=value.trim();if(!message||busy)return;setText("");setBusy(true);
   const optimistic:Message={id:crypto.randomUUID(),role:"user",content:message,created_at:new Date().toISOString()};setMessages(m=>[...m,optimistic]);
-  const {data,error}=await getSupabase().functions.invoke("nexa-assistant",{body:{message}});
+  const {data,error}=await getSupabase().functions.invoke("nexa-assistant",{body:{message,...(conversationId?{conversation_id:conversationId}: {})}});
   if(error){setMessages(m=>[...m,{id:crypto.randomUUID(),role:"assistant",content:"I couldn't complete that request. Please try again.",created_at:new Date().toISOString()}]);}
-  else if(data?.reply){setMessages(m=>[...m,{id:data.message_id||crypto.randomUUID(),role:"assistant",content:data.reply,created_at:new Date().toISOString()}]);}
+  else if(data?.reply){if(data.conversation_id)setConversationId(data.conversation_id);setMessages(m=>[...m,{id:data.message_id||crypto.randomUUID(),role:"assistant",content:data.reply,created_at:new Date().toISOString()}]);onChanged();}
   setBusy(false);
  }
  const quick=[["✎","Plan my day","Create a schedule for me"],["◷","Set a reminder","Don't let me forget anything"],["✓","Help with my tasks","Organize my to-do list"],["✦","Answer a question","Ask me anything"]];
@@ -130,9 +130,9 @@ function AddTask({onClose,onCreated}:{onClose:()=>void;onCreated:(task:Task)=>vo
 
 export default function Page(){
  const [intro,setIntro]=useState<"splash"|"onboarding"|"app">("splash"); const [tab,setTab]=useState<Tab>("home");
- const [user,setUser]=useState<{id:string;name:string;email:string} | null>(null); const [tasks,setTasks]=useState<Task[]>([]); const [events,setEvents]=useState<Event[]>([]); const [addTask,setAddTask]=useState(false); const [loading,setLoading]=useState(true);
+ const [user,setUser]=useState<{id:string;name:string;email:string} | null>(null); const [tasks,setTasks]=useState<Task[]>([]); const [events,setEvents]=useState<Event[]>([]); const [addTask,setAddTask]=useState(false); const [loading,setLoading]=useState(true); const [dataVersion,setDataVersion]=useState(0);
  useEffect(()=>{const timer=setTimeout(async()=>{const {data}=await getSupabase().auth.getUser();if(data.user){const name=(data.user.user_metadata?.display_name as string)||data.user.email?.split("@")[0]||"Sam";setUser({id:data.user.id,name,email:data.user.email||""});setIntro("app")}else setIntro("onboarding");setLoading(false)},900);const {data:{subscription}}=getSupabase().auth.onAuthStateChange((_e,s)=>{if(s?.user){const name=(s.user.user_metadata?.display_name as string)||s.user.email?.split("@")[0]||"Sam";setUser({id:s.user.id,name,email:s.user.email||""});setIntro("app")} });return()=>{clearTimeout(timer);subscription.unsubscribe()}},[]);
- useEffect(()=>{if(!user)return;(async()=>{const [{data:t},{data:e},{data:p}]=await Promise.all([getSupabase().from("tasks").select("id,title,description,due_at,completed_at,priority").eq("user_id",user.id).order("due_at",{ascending:true,nullsFirst:false}).limit(100),getSupabase().from("calendar_events").select("id,title,description,starts_at,ends_at,location").eq("user_id",user.id).order("starts_at",{ascending:true}).limit(100),getSupabase().from("profiles").select("display_name").eq("id",user.id).maybeSingle()]);setTasks((t||[]) as Task[]);setEvents((e||[]) as Event[]);if(p?.display_name&&p.display_name!==user.name)setUser(u=>u?{...u,name:p.display_name}:u)})()},[user?.id]);
+ useEffect(()=>{if(!user)return;(async()=>{const [{data:t},{data:e},{data:p}]=await Promise.all([getSupabase().from("tasks").select("id,title,description,due_at,completed_at,priority").eq("user_id",user.id).order("due_at",{ascending:true,nullsFirst:false}).limit(100),getSupabase().from("calendar_events").select("id,title,description,starts_at,ends_at,location").eq("user_id",user.id).order("starts_at",{ascending:true}).limit(100),getSupabase().from("profiles").select("display_name").eq("id",user.id).maybeSingle()]);setTasks((t||[]) as Task[]);setEvents((e||[]) as Event[]);if(p?.display_name&&p.display_name!==user.name)setUser(u=>u?{...u,name:p.display_name}:u)})()},[user?.id,dataVersion]);
  async function completeTask(id:string){const now=new Date().toISOString();const {error}=await getSupabase().from("tasks").update({completed_at:now,updated_at:now}).eq("id",id);if(!error)setTasks(ts=>ts.map(t=>t.id===id?{...t,completed_at:now}:t))}
  async function signOut(){await getSupabase().auth.signOut();setUser(null);setIntro("onboarding");setTab("home")}
  if(loading||intro==="splash")return <main className="stage"><div className="phone splash"><div className="status">9:41 <span>▮▮▮ ◼</span></div><div className="splashGlow"/><Orb/><div className="logoText">N E X A</div><p>Your Personal Assistant<br/>for a Smarter Life</p><div className="loader"/><small>Organize · Plan · Achieve</small><div className="builtBy">Built by Olanlokun Samuel<br/><span>Samzy Technology</span></div></div></main>;
@@ -141,7 +141,7 @@ export default function Page(){
  const currentUser=user;
  return <main className="app"><div className="phone"><div className="status">9:41 <span>▮▮▮ ◼</span></div>
   {tab==="home"&&<Home name={currentUser.name} tasks={tasks} events={events} setTab={setTab} onComplete={completeTask}/>}
-  {tab==="assistant"&&<Assistant userId={currentUser.id}/>}
+  {tab==="assistant"&&<Assistant userId={currentUser.id} onChanged={()=>setDataVersion(v=>v+1)}/>}
   {tab==="tasks"&&<Tasks tasks={tasks} onComplete={completeTask} onAdd={()=>setAddTask(true)}/>}
   {tab==="calendar"&&<Calendar events={events}/>}
   {tab==="profile"&&<Profile name={currentUser.name} email={currentUser.email} setTab={setTab} onSignOut={signOut}/>}
