@@ -2,6 +2,18 @@ import { withSupabase } from "npm:@supabase/server@1.8.0";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const MODEL = "gpt-5.6";
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
+};
+
+function json(body:unknown,status=200){
+  return new Response(JSON.stringify(body),{
+    status,
+    headers:{"Content-Type":"application/json",...CORS_HEADERS}
+  });
+}
 
 const tools = [
   {type:"function",function:{name:"create_task",description:"Create a task for the authenticated user.",parameters:{type:"object",properties:{title:{type:"string"},due_at:{type:"string",description:"ISO-8601 datetime or null"},priority:{type:"string",enum:["low","normal","high","urgent"]}},required:["title"]}}},
@@ -17,13 +29,27 @@ const tools = [
 ];
 
 async function openai(messages:unknown[]){
-  const response=await fetch("https://api.openai.com/v1/chat/completions",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":`Bearer ${OPENAI_API_KEY}`},
-    body:JSON.stringify({model:MODEL,messages,tools,tool_choice:"auto"})
-  });
-  if(!response.ok) throw new Error(await response.text());
-  return await response.json();
+  if(!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured.");
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),45000);
+  try{
+    const response=await fetch("https://api.openai.com/v1/chat/completions",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":`Bearer ${OPENAI_API_KEY}`},
+      body:JSON.stringify({
+        model:MODEL,
+        messages,
+        tools,
+        tool_choice:"auto",
+        max_completion_tokens:1200
+      }),
+      signal:controller.signal
+    });
+    if(!response.ok) throw new Error(await response.text());
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function runTool(name:string,args:any,userId:string,db:any){
@@ -62,18 +88,28 @@ async function runTool(name:string,args:any,userId:string,db:any){
   return {error:"Unknown tool"};
 }
 
-export default {
-  fetch: withSupabase({auth:"user"}, async (req,ctx)=>{
-    if(req.method!=="POST") return new Response("Method Not Allowed",{status:405});
-    if(!OPENAI_API_KEY) return Response.json({error:"OPENAI_API_KEY is not configured."},{status:503});
+const authenticatedHandler=withSupabase({auth:"user"}, async (req,ctx)=>{
+    if(req.method!=="POST") return json({error:"Method Not Allowed"},405);
+    if(!OPENAI_API_KEY) return json({error:"OPENAI_API_KEY is not configured."},503);
     try{
       const body=await req.json();
       const message=typeof body.message==="string"?body.message.trim():"";
       if(!message||message.length>8000) return Response.json({error:"Invalid message."},{status:400});
       const userId=ctx.userClaims?.sub;
-      if(!userId) return Response.json({error:"Unauthorized."},{status:401});
+      if(!userId) return json({error:"Unauthorized."},401);
 
       const db=ctx.supabaseAdmin;
+      const {data:quota,error:quotaError}=await db.rpc("consume_nexa_ai_request",{p_user_id:userId});
+      if(quotaError) throw quotaError;
+      const quotaRow=Array.isArray(quota)?quota[0]:quota;
+      if(!quotaRow?.allowed){
+        return json({
+          error:`Daily AI limit reached for ${quotaRow?.plan||"free"} plan.`,
+          daily_limit:quotaRow?.daily_limit??30,
+          request_count:quotaRow?.request_count??0,
+          plan:quotaRow?.plan||"free"
+        },429);
+      }
       let conversationId=typeof body.conversation_id==="string"?body.conversation_id:null;
       if(conversationId){
         const {data}=await db.from("conversations").select("id").eq("id",conversationId).eq("user_id",userId).maybeSingle();
@@ -93,8 +129,12 @@ export default {
       const system={role:"system",content:`You are NEXA, a premium personal assistant. Current UTC time: ${now}. User timezone: ${profile?.timezone||"UTC"}. User name: ${profile?.display_name||"there"}. Use tools for real actions. Never claim an action happened unless the tool returned success. For destructive actions, do not invent delete capabilities. Be concise, clear, and practical.`};
       const msgs:any[]=[system,...(history||[])];
       let reply="";
+      let inputTokens=0;
+      let outputTokens=0;
       for(let i=0;i<4;i++){
         const completion=await openai(msgs);
+        inputTokens+=Number(completion.usage?.prompt_tokens||completion.usage?.input_tokens||0);
+        outputTokens+=Number(completion.usage?.completion_tokens||completion.usage?.output_tokens||0);
         const assistant=completion.choices?.[0]?.message;
         if(!assistant) throw new Error("OpenAI returned no message.");
         if(!assistant.tool_calls?.length){reply=assistant.content||"I’m here.";break;}
@@ -109,10 +149,23 @@ export default {
       const {data:saved,error:savedError}=await db.from("messages").insert({conversation_id:conversationId,user_id:userId,role:"assistant",content:reply}).select("id").single();
       if(savedError) throw savedError;
       await db.from("conversations").update({updated_at:new Date().toISOString()}).eq("id",conversationId).eq("user_id",userId);
-      return Response.json({conversation_id:conversationId,reply,message_id:saved.id});
+      if(inputTokens||outputTokens){
+        await db.rpc("record_nexa_ai_tokens",{
+          p_user_id:userId,
+          p_input_tokens:inputTokens,
+          p_output_tokens:outputTokens
+        });
+      }
+      return json({conversation_id:conversationId,reply,message_id:saved.id});
     }catch(error){
       console.error("nexa-assistant",error);
-      return Response.json({error:"NEXA could not complete that request."},{status:500});
+      return json({error:"NEXA could not complete that request."},500);
     }
-  })
+  });
+
+export default {
+  fetch: async (req:Request)=>{
+    if(req.method==="OPTIONS") return new Response("ok",{headers:CORS_HEADERS});
+    return authenticatedHandler(req);
+  }
 };
