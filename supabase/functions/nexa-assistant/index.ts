@@ -19,7 +19,7 @@ const tools = [
 async function openai(messages:unknown[]){
   const response=await fetch("https://api.openai.com/v1/chat/completions",{
     method:"POST",
-    headers:{"Content-Type":"application/json","Authorization:`Bearer ${OPENAI_API_KEY}`},
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${OPENAI_API_KEY}`},
     body:JSON.stringify({model:MODEL,messages,tools,tool_choice:"auto"})
   });
   if(!response.ok) throw new Error(await response.text());
