@@ -3,11 +3,18 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Tab="home"|"assistant"|"tasks"|"calendar"|"profile"|"premium";
+type PlanKey="premium"|"gold"|"elite";
 type Task={id:string;title:string;description:string|null;due_at:string|null;completed_at:string|null;priority:string};
 type Event={id:string;title:string;description:string|null;starts_at:string;ends_at:string;location:string|null};
 type Message={id:string;role:"user"|"assistant";content:string;created_at:string};
 
 function getSupabase(){ return createClient(); }
+
+const PLANS:{key:PlanKey;name:string;price:number;tagline:string;features:string[]}[]=[
+ {key:"premium",name:"Premium",price:1000,tagline:"Smart everyday assistance",features:["NEXA AI assistant","Tasks & reminders","Calendar & planning","Notes & goals"]},
+ {key:"gold",name:"Gold",price:3000,tagline:"More power for busy days",features:["Everything in Premium","Advanced planning","Priority AI access","More automation"]},
+ {key:"elite",name:"Elite",price:5000,tagline:"Full NEXA experience",features:["Everything in Gold","Highest AI tier","Priority support","Ad-free experience"]}
+];
 
 function Orb({small=false}:{small?:boolean}){return <div className={"orb "+(small?"orbSmall":"")}><span>N</span></div>}
 function Icon({children}:{children:React.ReactNode}){return <div className="iconBox">{children}</div>}
@@ -95,12 +102,25 @@ function Calendar({events}:{events:Event[]}){
 
 function Profile({name,email,setTab,onSignOut}:{name:string;email:string;setTab:(x:Tab)=>void;onSignOut:()=>void}){
  return <div className="screen"><div className="profileTop"><div className="bigAvatar">{name.slice(0,1).toUpperCase()}</div><div><h2>{name||"Sam"}</h2><small>{email}</small></div></div>
-  <button className="premiumRow" onClick={()=>setTab("premium")}><span>♛</span><div><strong>NEXA Premium</strong><small>Unlock more features</small></div>›</button>
+  <button className="premiumRow" onClick={()=>setTab("premium")}><span>♛</span><div><strong>NEXA Plans</strong><small>Premium ₦1,000 · Gold ₦3,000 · Elite ₦5,000 / month</small></div>›</button>
   <div className="settings">{[["✦","My Goals","Set and track your goals"],["♧","Notifications","Manage your alerts"],["◉","Appearance","Choose your theme"],["◎","Language","English"],["?","Help & Support","Get help when you need it"],["ⓘ","About NEXA","Version 1.0.0"]].map(x=><button key={x[1]}><Icon>{x[0]}</Icon><div><strong>{x[1]}</strong><small>{x[2]}</small></div><span>›</span></button>)}</div>
   <button className="logout" onClick={onSignOut}>Sign out</button>
  </div>
 }
-function Premium({setTab}:{setTab:(x:Tab)=>void}){return <div className="premium"><div className="mountains"/><span className="premiumBrand">N E X A</span><b>♛ Premium</b><h1>Unlock Your<br/>Full Potential</h1><p>Get more features, more control,<br/>and a smarter experience.</p><ul>{["Unlimited tasks & reminders","Advanced AI assistant","Custom themes","Priority support","Ad-free experience"].map(x=><li key={x}>✓ {x}</li>)}</ul><button className="cta" onClick={()=>alert("Billing will be activated when the payment provider secrets are configured.")}>Upgrade to Premium</button><button className="later" onClick={()=>setTab("profile")}>Maybe Later</button></div>}
+function Premium({setTab}:{setTab:(x:Tab)=>void}){
+ const [selected,setSelected]=useState<PlanKey>("gold");
+ const plan=PLANS.find(x=>x.key===selected)!;
+ return <div className="premium">
+  <div className="mountains"/>
+  <span className="premiumBrand">N E X A</span>
+  <b>♛ Choose Your Plan</b>
+  <h1>Unlock Your<br/>Full Potential</h1>
+  <p>Simple monthly plans for a smarter NEXA experience.</p>
+  <div className="planGrid">{PLANS.map(x=><button key={x.key} className={"planCard "+(selected===x.key?"selected":"")} onClick={()=>setSelected(x.key)}><strong>{x.name}</strong><span>₦{x.price.toLocaleString("en-NG")}<small>/month</small></span><em>{x.tagline}</em></button>)}</div>
+  <ul>{plan.features.map(x=><li key={x}>✓ {x}</li>)}</ul>
+  <button className="cta" onClick={()=>alert("The plan is selected. Payment checkout will be connected when the payment provider credentials/API details are configured.")}>Continue with {plan.name} · ₦{plan.price.toLocaleString("en-NG")}</button>
+  <button className="later" onClick={()=>setTab("profile")}>Maybe Later</button>
+ </div>}
 
 function AddTask({onClose,onCreated}:{onClose:()=>void;onCreated:(task:Task)=>void}){
  const [title,setTitle]=useState("");const [due,setDue]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");
