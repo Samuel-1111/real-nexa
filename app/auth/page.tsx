@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function AuthPage(){
+function AuthForm(){
   const params=useSearchParams();
   const [mode,setMode]=useState<"login"|"signup"|"forgot">((params.get("mode") as "login"|"signup"|"forgot")||"login");
   const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [name,setName]=useState("");
@@ -50,3 +50,5 @@ export default function AuthPage(){
     </div>
   </div></main>
 }
+
+export default function AuthPage(){ return <Suspense fallback={<main className="authShell"><div className="authCard"><div className="brand">NEXA</div><p className="muted">Loading…</p></div></main>}><AuthForm/></Suspense> }
