@@ -1,7 +1,9 @@
 -- NEXA public-use hardening
 -- AI usage protection and stricter message ownership.
 
-create table if not exists public.ai_usage_daily (
+create schema if not exists private;
+
+create table if not exists private.ai_usage_daily (
   user_id uuid not null references auth.users(id) on delete cascade,
   usage_date date not null default current_date,
   request_count integer not null default 0,
@@ -14,9 +16,7 @@ create table if not exists public.ai_usage_daily (
   constraint ai_usage_daily_token_counts_check check (input_tokens >= 0 and output_tokens >= 0 and total_tokens >= 0)
 );
 
-alter table public.ai_usage_daily enable row level security;
-revoke all on table public.ai_usage_daily from public, anon, authenticated;
-grant select, insert, update on table public.ai_usage_daily to service_role;
+
 
 create or replace function public.consume_nexa_ai_request(p_user_id uuid)
 returns table(allowed boolean, request_count integer, daily_limit integer, plan text)
@@ -45,19 +45,19 @@ begin
     else 30
   end;
 
-  insert into public.ai_usage_daily(user_id, usage_date, request_count, updated_at)
+  insert into private.ai_usage_daily(user_id, usage_date, request_count, updated_at)
   values (p_user_id, current_date, 1, now())
   on conflict (user_id, usage_date)
   do update set
-    request_count = public.ai_usage_daily.request_count + 1,
+    request_count = private.ai_usage_daily.request_count + 1,
     updated_at = now()
-  where public.ai_usage_daily.request_count < v_limit
-  returning public.ai_usage_daily.request_count into v_count;
+  where private.ai_usage_daily.request_count < v_limit
+  returning private.ai_usage_daily.request_count into v_count;
 
   return query select
     (v_count is not null),
     coalesce(v_count, (
-      select request_count from public.ai_usage_daily
+      select request_count from private.ai_usage_daily
       where user_id = p_user_id and usage_date = current_date
     )),
     v_limit,
@@ -76,7 +76,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  insert into public.ai_usage_daily(user_id, usage_date, input_tokens, output_tokens, total_tokens, updated_at)
+  insert into private.ai_usage_daily(user_id, usage_date, input_tokens, output_tokens, total_tokens, updated_at)
   values (
     p_user_id,
     current_date,
@@ -87,9 +87,9 @@ begin
   )
   on conflict (user_id, usage_date)
   do update set
-    input_tokens = public.ai_usage_daily.input_tokens + greatest(coalesce(p_input_tokens,0),0),
-    output_tokens = public.ai_usage_daily.output_tokens + greatest(coalesce(p_output_tokens,0),0),
-    total_tokens = public.ai_usage_daily.total_tokens + greatest(coalesce(p_input_tokens,0),0) + greatest(coalesce(p_output_tokens,0),0),
+    input_tokens = private.ai_usage_daily.input_tokens + greatest(coalesce(p_input_tokens,0),0),
+    output_tokens = private.ai_usage_daily.output_tokens + greatest(coalesce(p_output_tokens,0),0),
+    total_tokens = private.ai_usage_daily.total_tokens + greatest(coalesce(p_input_tokens,0),0) + greatest(coalesce(p_output_tokens,0),0),
     updated_at = now();
 end;
 $$;
