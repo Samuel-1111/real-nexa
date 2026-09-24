@@ -122,7 +122,7 @@ export default function Page(){
   {tab==="assistant"&&<Assistant userId={currentUser.id}/>}
   {tab==="tasks"&&<Tasks tasks={tasks} onComplete={completeTask} onAdd={()=>setAddTask(true)}/>}
   {tab==="calendar"&&<Calendar events={events}/>}
-  {tab==="profile"&&<Profile name={user.name} email={currentUser.email} setTab={setTab} onSignOut={signOut}/>}
+  {tab==="profile"&&<Profile name={currentUser.name} email={currentUser.email} setTab={setTab} onSignOut={signOut}/>}
   {tab==="premium"&&<Premium setTab={setTab}/>}
   {tab!=="premium"&&<Bottom tab={tab} setTab={setTab}/>}
   {addTask&&<AddTask onClose={()=>setAddTask(false)} onCreated={task=>setTasks(ts=>[task,...ts])}/>}
