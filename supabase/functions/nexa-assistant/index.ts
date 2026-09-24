@@ -31,7 +31,7 @@ async function runTool(name:string,args:any,userId:string,db:any){
     const {data,error}=await db.from("tasks").insert({user_id:userId,title:String(args.title).slice(0,300),due_at:args.due_at||null,priority:args.priority||"normal"}).select("id,title,due_at,priority").single(); return error?{error:error.message}:data;
   }
   if(name==="list_tasks"){
-    let q=db.from("tasks").select("id,title,due_at,completed_at,priority").order("due_at",{ascending:true,nullsFirst:false}).limit(50);
+    let q=db.from("tasks").select("id,title,due_at,completed_at,priority").eq("user_id",userId).order("due_at",{ascending:true,nullsFirst:false}).limit(50);
     if(!args.include_completed) q=q.is("completed_at",null); const {data,error}=await q; return error?{error:error.message}:data;
   }
   if(name==="complete_task"){
@@ -44,20 +44,20 @@ async function runTool(name:string,args:any,userId:string,db:any){
     const {data,error}=await db.from("calendar_events").insert({user_id:userId,title:String(args.title).slice(0,300),starts_at:args.starts_at,ends_at:args.ends_at,location:args.location||null}).select("id,title,starts_at,ends_at,location").single(); return error?{error:error.message}:data;
   }
   if(name==="list_events"){
-    let q=db.from("calendar_events").select("id,title,starts_at,ends_at,location").order("starts_at",{ascending:true}).limit(50);
+    let q=db.from("calendar_events").select("id,title,starts_at,ends_at,location").eq("user_id",userId).order("starts_at",{ascending:true}).limit(50);
     if(args.from)q=q.gte("starts_at",args.from); if(args.to)q=q.lte("starts_at",args.to); const {data,error}=await q; return error?{error:error.message}:data;
   }
   if(name==="create_note"){
     const {data,error}=await db.from("notes").insert({user_id:userId,title:String(args.title).slice(0,200),content:String(args.content).slice(0,20000)}).select("id,title,content").single(); return error?{error:error.message}:data;
   }
   if(name==="list_notes"){
-    const limit=Math.min(Math.max(Number(args.limit)||10,1),30); const {data,error}=await db.from("notes").select("id,title,content,updated_at").order("updated_at",{ascending:false}).limit(limit); return error?{error:error.message}:data;
+    const limit=Math.min(Math.max(Number(args.limit)||10,1),30); const {data,error}=await db.from("notes").select("id,title,content,updated_at").eq("user_id",userId).order("updated_at",{ascending:false}).limit(limit); return error?{error:error.message}:data;
   }
   if(name==="create_goal"){
     const {data,error}=await db.from("goals").insert({user_id:userId,title:String(args.title).slice(0,200),description:args.description?String(args.description).slice(0,5000):null,target_date:args.target_date||null}).select("id,title,target_date").single(); return error?{error:error.message}:data;
   }
   if(name==="list_goals"){
-    const {data,error}=await db.from("goals").select("id,title,description,target_date,completed_at").order("created_at",{ascending:false}).limit(30); return error?{error:error.message}:data;
+    const {data,error}=await db.from("goals").select("id,title,description,target_date,completed_at").eq("user_id",userId).order("created_at",{ascending:false}).limit(30); return error?{error:error.message}:data;
   }
   return {error:"Unknown tool"};
 }
