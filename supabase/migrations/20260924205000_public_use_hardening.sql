@@ -29,6 +29,11 @@ declare
   v_limit integer := 30;
   v_count integer;
 begin
+  if p_user_id is null then
+    return query select false, 0, v_limit, v_plan;
+    return;
+  end if;
+
   select case
            when s.status in ('active','trialing') and s.plan in ('premium','gold','elite') then s.plan
            else 'free'
@@ -98,6 +103,11 @@ revoke all on function public.consume_nexa_ai_request(uuid) from public, anon, a
 revoke all on function public.record_nexa_ai_tokens(uuid, bigint, bigint) from public, anon, authenticated;
 grant execute on function public.consume_nexa_ai_request(uuid) to service_role;
 grant execute on function public.record_nexa_ai_tokens(uuid, bigint, bigint) to service_role;
+
+create policy "backend only ai usage" on private.ai_usage_daily
+  for all to service_role
+  using (true)
+  with check (true);
 
 drop policy if exists "messages insert user own" on public.messages;
 create policy "messages insert user own" on public.messages
