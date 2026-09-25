@@ -60,9 +60,9 @@ grant select on private.web_push_config to service_role;
 insert into private.web_push_config (id, vapid_public_key, vapid_private_key, cron_secret, subject)
 values (
   1,
-  'BKuJo8QKGFW_sJhue7Z_elbTZO6_hfKj433TYxKOkUFtVLzennx6rsNyCuQeq_h9EpKnW5vSsDMZ5yYESUS3rAA',
-  'PTJamalpNpy2y0jcktHKW1144vbPiq5CnNSAUWdvR2c',
-  'oQdnc9ZEOhH1KzRt23naodkJiiUqLeb5nbJZ6lkevmY',
+  'REPLACE_WITH_VAPID_PUBLIC_KEY',
+  'REPLACE_WITH_VAPID_PRIVATE_KEY',
+  'REPLACE_WITH_CRON_SECRET',
   'https://real-nexa.vercel.app/'
 )
 on conflict (id) do update set
