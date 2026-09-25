@@ -178,3 +178,5 @@ input,textarea{color:var(--text)}
 .authCard form{display:flex;flex-direction:column;gap:11px}.authCard label{display:flex;flex-direction:column;gap:6px;color:#aebad2;font-size:9px;letter-spacing:.2px}.authCard input{width:100%;height:50px;border:1px solid #1b365d;background:#041022;border-radius:14px;padding:0 14px;outline:0;font-size:12px}.authCard input:focus{border-color:#775dff;box-shadow:0 0 0 3px #775dff15}
 .authLinks{display:flex;flex-direction:column;align-items:center;gap:11px;margin-top:17px}.authLinks button{font-size:10px;color:#c1adff}.authFooter{display:flex;justify-content:center;gap:8px;margin-top:25px;color:#657493;font-size:8px}.authFooter button{color:#a995e7}
 @media(max-width:480px){.authShell{padding:0}.authCard{width:100%;min-height:100dvh;border:0;border-radius:0;box-shadow:none;padding:56px 22px 28px}}
+
+html[data-theme="soft"] .appPhone{background:#0a1020}html[data-theme="soft"] .bottomNav{background:#071225f5}
