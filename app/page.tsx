@@ -129,7 +129,7 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
     if(!voiceMode || typeof window==="undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance=new SpeechSynthesisUtterance(reply);
-    utterance.rate=0.96; utterance.pitch=1.02; utterance.volume=1;
+    utterance.rate=0.96; utterance.pitch=1.02; utterance.volume=1; utterance.onend=()=>{if(voiceMode) window.setTimeout(()=>startVoice(),250);};
     const voices=window.speechSynthesis.getVoices();
     const preferred=voices.find(v=>/^en/i.test(v.lang) && /natural|enhanced|neural|online/i.test(v.name)) || voices.find(v=>/^en/i.test(v.lang));
     if(preferred) utterance.voice=preferred;
@@ -251,13 +251,14 @@ function Goals({userId}:{userId:string}) {
 
 function Profile({name,email,setTab,onSignOut}:{name:string;email:string;setTab:(tab:Tab)=>void;onSignOut:()=>void}) {
   const [about,setAbout]=useState(false); const [appearance,setAppearance]=useState<"midnight"|"soft">("midnight");
+  useEffect(()=>{document.documentElement.dataset.theme=appearance; return()=>{delete document.documentElement.dataset.theme;}},[appearance]);
   return <div className="screen scrollScreen"><div className="profileHero"><div className="bigAvatar">{(name||"N").slice(0,1).toUpperCase()}</div><div><h2>{name||"NEXA user"}</h2><p>{email}</p></div></div>
     <button className="planBanner" onClick={()=>setTab("premium")}><span>♛</span><div><strong>NEXA Plans</strong><small>Premium ₦1,000 · Gold ₦3,000 · Elite ₦5,000 / month</small></div><b>›</b></button>
     <div className="settingsList">
       <button onClick={()=>setTab("goals")}><Icon>✦</Icon><div><strong>My Goals</strong><small>Set and track goals</small></div><span>›</span></button>
       <button onClick={async()=>{setTab("reminders");if("Notification" in window&&Notification.permission==="default")await Notification.requestPermission()}}><Icon>◷</Icon><div><strong>Notifications & Reminders</strong><small>Manage your alert preferences</small></div><span>›</span></button>
       <button onClick={()=>setAppearance(appearance==="midnight"?"soft":"midnight")}><Icon>◉</Icon><div><strong>Appearance</strong><small>{appearance==="midnight"?"Midnight":"Soft"} theme · tap to switch</small></div><span>↻</span></button>
-      <button onClick={()=>window.alert("NEXA currently supports English.")}><Icon>◎</Icon><div><strong>Language</strong><small>English</small></div><span>›</span></button>
+      <button onClick={()=>window.alert("NEXA currently supports English. More languages can be added in a future update.")}><Icon>◎</Icon><div><strong>Language</strong><small>English</small></div><span>›</span></button>
       <button onClick={whatsapp}><Icon>?</Icon><div><strong>Help & Support</strong><small>WhatsApp · 09042987385</small></div><span>›</span></button>
       <button onClick={()=>setAbout(true)}><Icon>ⓘ</Icon><div><strong>About NEXA</strong><small>Version 1.0.0 · Built by Olanlokun Samuel</small></div><span>›</span></button>
     </div>
