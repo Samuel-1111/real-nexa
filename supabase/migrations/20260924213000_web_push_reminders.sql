@@ -57,19 +57,7 @@ grant usage on schema private to service_role;
 revoke all on private.web_push_config from public, anon, authenticated, service_role;
 grant select on private.web_push_config to service_role;
 
-insert into private.web_push_config (id, vapid_public_key, vapid_private_key, cron_secret, subject)
-values (
-  1,
-  'REPLACE_WITH_VAPID_PUBLIC_KEY',
-  'REPLACE_WITH_VAPID_PRIVATE_KEY',
-  'REPLACE_WITH_CRON_SECRET',
-  'https://real-nexa.vercel.app/'
-)
-on conflict (id) do update set
-  vapid_public_key=excluded.vapid_public_key,
-  vapid_private_key=excluded.vapid_private_key,
-  cron_secret=excluded.cron_secret,
-  subject=excluded.subject;
+-- VAPID and cron secrets are provisioned in the live project outside source control.
 
 create or replace function public.get_nexa_web_push_config()
 returns table (vapid_public_key text, vapid_private_key text, cron_secret text, subject text)
