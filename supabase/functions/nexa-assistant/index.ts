@@ -132,23 +132,43 @@ const authenticatedHandler=withSupabase({auth:"user"}, async (req,ctx)=>{
       const {data:profile}=await db.from("profiles").select("display_name,timezone").eq("id",userId).maybeSingle();
       const now=new Date().toISOString();
       const system={role:"system",content:`You are NEXA, a premium personal assistant. Current UTC time: ${now}. User timezone: ${profile?.timezone||"UTC"}. User name: ${profile?.display_name||"there"}. Use tools for real actions. Never claim an action happened unless the tool returned success. For destructive actions, do not invent delete capabilities. Be concise, clear, and practical.`};
-      const msgs:any[]=[system,...(history||[])];
+      const systemText=system.content;
+      const msgs:any[]=(history||[]).map((item:any)=>({
+        role:item.role==="assistant"?"model":"user",
+        parts:[{text:String(item.content||"")}]
+      }));
       let reply="";
       let inputTokens=0;
       let outputTokens=0;
-      for(let i=0;i<4;i++){
-        const completion=await openai(msgs);
-        inputTokens+=Number(completion.usage?.prompt_tokens||completion.usage?.input_tokens||0);
-        outputTokens+=Number(completion.usage?.completion_tokens||completion.usage?.output_tokens||0);
-        const assistant=completion.choices?.[0]?.message;
-        if(!assistant) throw new Error("OpenAI returned no message.");
-        if(!assistant.tool_calls?.length){reply=assistant.content||"I’m here.";break;}
-        msgs.push(assistant);
-        for(const call of assistant.tool_calls){
-          let args:any={}; try{args=JSON.parse(call.function.arguments||"{}")}catch{}
-          const result=await runTool(call.function.name,args,userId,db);
-          msgs.push({role:"tool",tool_call_id:call.id,content:JSON.stringify(result)});
+      for(let i=0;i<5;i++){
+        const completion=await gemini(msgs,systemText);
+        inputTokens+=Number(completion.usageMetadata?.promptTokenCount||0);
+        outputTokens+=Number(completion.usageMetadata?.candidatesTokenCount||0);
+        const assistantContent=completion.candidates?.[0]?.content;
+        if(!assistantContent) throw new Error("Gemini returned no content.");
+        const calls=(assistantContent.parts||[]).map((part:any)=>part.functionCall).filter(Boolean);
+        if(!calls.length){
+          reply=(assistantContent.parts||[])
+            .filter((part:any)=>typeof part.text==="string")
+            .map((part:any)=>part.text)
+            .join("")
+            .trim() || "I’m here.";
+          break;
         }
+        // Preserve the full Gemini model turn, including tool metadata/signatures.
+        msgs.push(assistantContent);
+        const responseParts=[];
+        for(const call of calls){
+          const args=call.args&&typeof call.args==="object"?call.args:{};
+          const result=await runTool(String(call.name||""),args,userId,db);
+          const functionResponse:any={
+            name:String(call.name||""),
+            response:{result}
+          };
+          if(call.id) functionResponse.id=call.id;
+          responseParts.push({functionResponse});
+        }
+        msgs.push({role:"user",parts:responseParts});
       }
       if(!reply) reply="I completed the available actions. What would you like to do next?";
       const {data:saved,error:savedError}=await db.from("messages").insert({conversation_id:conversationId,user_id:userId,role:"assistant",content:reply}).select("id").single();
@@ -164,7 +184,8 @@ const authenticatedHandler=withSupabase({auth:"user"}, async (req,ctx)=>{
       return json({conversation_id:conversationId,reply,message_id:saved.id});
     }catch(error){
       console.error("nexa-assistant",error);
-      return json({error:"NEXA could not complete that request."},500);
+      const detail=error instanceof Error?error.message.slice(0,500):String(error);
+      return json({error:"NEXA could not complete that request.",debug:detail},500);
     }
   });
 
