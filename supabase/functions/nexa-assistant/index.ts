@@ -390,6 +390,44 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: CORS_HEADERS });
   }
 
+  if (req.method === "GET") {
+    const diagnostic = new URL(req.url).searchParams.get("diagnostic");
+    if (diagnostic === "1") {
+      let geminiStatus = "not-tested";
+      if (GEMINI_API_KEY) {
+        try {
+          const test = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-goog-api-key": GEMINI_API_KEY,
+              },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: "Reply with OK only." }] }],
+                generationConfig: { maxOutputTokens: 8 },
+              }),
+            },
+          );
+          geminiStatus = test.ok ? "ok" : `http-${test.status}`;
+        } catch {
+          geminiStatus = "network-error";
+        }
+      } else {
+        geminiStatus = "missing-key";
+      }
+      return json({
+        ok: true,
+        gemini_configured: Boolean(GEMINI_API_KEY),
+        gemini_model: GEMINI_MODEL,
+        supabase_configured: Boolean(SUPABASE_SECRET_KEY),
+        gemini_status: geminiStatus,
+      });
+    }
+    return json({ ok: true, function: "nexa-assistant" });
+  }
+
   if (req.method !== "POST") {
     return json({ error: "Method Not Allowed" }, 405);
   }
@@ -631,6 +669,7 @@ Be concise, clear, and practical.`;
     });
   } catch (error) {
     console.error("nexa-assistant", error);
-    return json({ error: "NEXA could not complete that request." }, 500);
+    const debug = error instanceof Error ? error.message.slice(0, 800) : String(error);
+    return json({ error: "NEXA could not complete that request.", debug }, 500);
   }
 });
