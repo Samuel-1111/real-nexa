@@ -1,25 +1,5 @@
-# REAL NEXA
+# NEXA
 
-NEXA is a premium personal assistant web app built from the supplied NEXA UI reference.
+NEXA personal assistant app powered by Supabase and Gemini.
 
-## Stack
-Next.js 16 + React + TypeScript, Supabase Auth/Postgres/RLS/Edge Functions, OpenAI.
-
-## Required client environment
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-- NEXT_PUBLIC_APP_URL
-
-## Required Supabase secrets
-- OPENAI_API_KEY
-- payment provider secrets when billing is enabled
-
-Never expose secret/service keys in browser code.
-
-## Development
-npm install
-npm run dev
-
-## Checks
-npm run typecheck
-npm run build
+The production backend is the Supabase `nexa-assistant` Edge Function. The PWA service worker cache is versioned so installed clients receive production fixes automatically.
