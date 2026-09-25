@@ -46,7 +46,7 @@ function Icon({children}:{children:React.ReactNode}) { return <span className="i
 function formatTime(value:string){ return new Date(value).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
 function formatDate(value:string){ return new Date(value).toLocaleDateString([], {month:"short", day:"numeric"}); }
 function isToday(value:string){ return new Date(value).toDateString()===new Date().toDateString(); }
-const NEXA_VAPID_PUBLIC_KEY="BKuJo8QKGFW_sJhue7Z_elbTZO6_hfKj433TYxKOkUFtVLzennx6rsNyCuQeq_h9EpKnW5vSsDMZ5yYESUS3rAA";
+const NEXA_VAPID_PUBLIC_KEY="BHzb3QfQaQp4JiW6gAHSrnEc7nnGnm9D-7wh1JkLva_mUG3bQuV38C_33xjSf4WLsqLS5Rk1QPqol5VbOzXA4T8";
 function urlBase64ToUint8Array(value:string){const padding="=".repeat((4-(value.length%4))%4);const base64=(value+padding).replace(/-/g,"+").replace(/_/g,"/");const raw=window.atob(base64);return Uint8Array.from(Array.from(raw).map(char=>char.charCodeAt(0)));}
 function whatsapp(){ window.open("https://wa.me/2349042987385","_blank","noopener,noreferrer"); }
 
