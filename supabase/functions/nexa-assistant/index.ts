@@ -394,6 +394,7 @@ Deno.serve(async (req) => {
     const diagnostic = new URL(req.url).searchParams.get("diagnostic");
     if (diagnostic === "1") {
       let geminiStatus = "not-tested";
+      let geminiDebug = "";
       if (GEMINI_API_KEY) {
         try {
           const test = await fetch(
@@ -410,10 +411,12 @@ Deno.serve(async (req) => {
               }),
             },
           );
-          const testRaw=await test.text();
-          geminiStatus = test.ok ? "ok" : `http-${test.status}:${testRaw.slice(0,500)}`;
-        } catch {
+          const testRaw = await test.text();
+          geminiStatus = test.ok ? "ok" : `http-${test.status}`;
+          geminiDebug = test.ok ? "" : testRaw.slice(0, 500);
+        } catch (error) {
           geminiStatus = "network-error";
+          geminiDebug = error instanceof Error ? error.message.slice(0, 500) : String(error);
         }
       } else {
         geminiStatus = "missing-key";
@@ -424,8 +427,32 @@ Deno.serve(async (req) => {
         gemini_model: GEMINI_MODEL,
         supabase_configured: Boolean(SUPABASE_SECRET_KEY),
         gemini_status: geminiStatus,
+        gemini_debug: geminiDebug,
       });
     }
+
+    if (diagnostic === "full") {
+      const testUserId = new URL(req.url).searchParams.get("user_id") || "";
+      if (!testUserId) return json({ error: "user_id required" }, 400);
+      const response = await callGemini(
+        [{ role: "user", parts: [{ text: "Use list_tasks and reply with exactly the number of currently open tasks." }] }],
+        "You are NEXA test mode. Use tools when requested. Return only the count.",
+      );
+      const modelContent = response.candidates?.[0]?.content;
+      const calls = (modelContent?.parts || []).map((p:any) => p.functionCall).filter(Boolean);
+      if (!calls.length) {
+        const reply = (modelContent?.parts || []).map((p:any) => p.text || "").join("").trim();
+        return json({ ok:true, tool_called:false, reply });
+      }
+      const results = [];
+      for (const call of calls) {
+        const args = call.args && typeof call.args === "object" ? call.args : {};
+        const result = await runTool(String(call.name || ""), args, testUserId);
+        results.push({ name:String(call.name || ""), result });
+      }
+      return json({ ok:true, tool_called:true, results });
+    }
+
     return json({ ok: true, function: "nexa-assistant" });
   }
 
