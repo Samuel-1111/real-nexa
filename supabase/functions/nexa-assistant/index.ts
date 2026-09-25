@@ -1,6 +1,6 @@
 import { withSupabase } from "npm:@supabase/server@1.8.0";
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const MODEL = "gpt-5.6";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
