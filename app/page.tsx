@@ -252,6 +252,7 @@ function Goals({userId}:{userId:string}) {
 function Profile({name,email,setTab,onSignOut}:{name:string;email:string;setTab:(tab:Tab)=>void;onSignOut:()=>void}) {
   const [about,setAbout]=useState(false); const [appearance,setAppearance]=useState<"midnight"|"soft">("midnight");
   useEffect(()=>{document.documentElement.dataset.theme=appearance; return()=>{delete document.documentElement.dataset.theme;}},[appearance]);
+  useEffect(()=>{document.documentElement.dataset.theme=appearance; return()=>{delete document.documentElement.dataset.theme;}},[appearance]);
   return <div className="screen scrollScreen"><div className="profileHero"><div className="bigAvatar">{(name||"N").slice(0,1).toUpperCase()}</div><div><h2>{name||"NEXA user"}</h2><p>{email}</p></div></div>
     <button className="planBanner" onClick={()=>setTab("premium")}><span>♛</span><div><strong>NEXA Plans</strong><small>Premium ₦1,000 · Gold ₦3,000 · Elite ₦5,000 / month</small></div><b>›</b></button>
     <div className="settingsList">
