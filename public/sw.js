@@ -1,4 +1,4 @@
-const CACHE_NAME = "nexa-shell-v1";
+const CACHE_NAME = "nexa-shell-v2";
 const APP_SHELL = ["/", "/auth", "/auth/reset", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -50,4 +50,44 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
+});
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch {}
+  const title = data.title || "NEXA reminder";
+  const body = data.body || "You have a reminder.";
+  const reminderId = data.reminderId || crypto.randomUUID();
+  const url = data.url || "/?tab=reminders";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icon-192.svg",
+      badge: "/icon-192.svg",
+      tag: "nexa-reminder-" + reminderId,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [250, 120, 250, 120, 600],
+      data: { url, reminderId },
+      timestamp: Date.now(),
+      actions: [
+        { action: "open", title: "Open NEXA" },
+        { action: "dismiss", title: "Dismiss" }
+      ]
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.action === "dismiss") return;
+  const target = new URL(event.notification.data?.url || "/?tab=reminders", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) return client.focus();
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });
