@@ -95,7 +95,7 @@ async function runTool(name:string,args:any,userId:string,db:any){
 
 const authenticatedHandler=withSupabase({auth:"user"}, async (req,ctx)=>{
     if(req.method!=="POST") return json({error:"Method Not Allowed"},405);
-    if(!OPENAI_API_KEY) return json({error:"OPENAI_API_KEY is not configured."},503);
+    if(!GEMINI_API_KEY) return json({error:"GEMINI_API_KEY is not configured."},503);
     try{
       const body=await req.json();
       const message=typeof body.message==="string"?body.message.trim():"";
