@@ -410,7 +410,8 @@ Deno.serve(async (req) => {
               }),
             },
           );
-          geminiStatus = test.ok ? "ok" : `http-${test.status}`;
+          const testRaw=await test.text();
+          geminiStatus = test.ok ? "ok" : `http-${test.status}:${testRaw.slice(0,500)}`;
         } catch {
           geminiStatus = "network-error";
         }
