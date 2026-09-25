@@ -1,0 +1,26 @@
+name: NEXA Supabase Deploy
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - ".github/workflows/nexa-supabase-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: yymlkzarekwlqzvsafgk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v2
+        with:
+          version: latest
+      - run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
