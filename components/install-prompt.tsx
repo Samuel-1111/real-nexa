@@ -18,7 +18,6 @@ export default function InstallPrompt(){
     if(standalone){setInstalled(true);return;}
     const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
     setIos(isIOS);
-    setCanInstall(!isIOS);
     const timer=window.setTimeout(()=>setVisible(true),1100);
     if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>undefined);
 
