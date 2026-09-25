@@ -23,7 +23,7 @@ function AuthForm() {
       : await supabase.auth.signUp({email:email.trim(),password,options:{data:{display_name:name.trim()}}});
     if(result.error){setError(result.error.message);setBusy(false);return;}
     if(mode==="signup"&&!result.data.session){setNotice("Account created. Check your email to verify your address.");setBusy(false);return;}
-    window.location.assign("/");
+    window.location.assign("/home");
   }
 
   return <main className="authShell">
