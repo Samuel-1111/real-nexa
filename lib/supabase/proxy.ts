@@ -17,6 +17,22 @@ export async function updateSession(request: NextRequest) {
       }
     }
   });
-  await supabase.auth.getClaims();
+
+  const { data } = await supabase.auth.getClaims();
+
+  if (data?.claims?.sub && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/home";
+    const redirect = NextResponse.redirect(url);
+    for (const cookie of response.cookies.getAll()) {
+      redirect.cookies.set(cookie.name, cookie.value);
+    }
+    for (const header of ["cache-control", "expires", "pragma"]) {
+      const value = response.headers.get(header);
+      if (value) redirect.headers.set(header, value);
+    }
+    return redirect;
+  }
+
   return response;
 }
