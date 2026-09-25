@@ -9,7 +9,7 @@ type Tab = "home" | "assistant" | "tasks" | "calendar" | "notes" | "reminders" |
 type Task = { id:string; title:string; description:string|null; due_at:string|null; completed_at:string|null; priority:string };
 type EventItem = { id:string; title:string; description:string|null; starts_at:string; ends_at:string; location:string|null };
 type Note = { id:string; title:string; content:string; created_at:string; updated_at:string };
-type Reminder = { id:string; title:string; remind_at:string; completed_at:string|null };
+type Reminder = { id:string; title:string; remind_at:string; completed_at:string|null; notified_at?:string|null };
 type Goal = { id:string; title:string; description:string|null; target_date:string|null; completed_at:string|null };
 type Conversation = { id:string; title:string; updated_at:string; created_at:string };
 type Message = { id:string; role:"user"|"assistant"; content:string; created_at:string };
@@ -46,6 +46,8 @@ function Icon({children}:{children:React.ReactNode}) { return <span className="i
 function formatTime(value:string){ return new Date(value).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
 function formatDate(value:string){ return new Date(value).toLocaleDateString([], {month:"short", day:"numeric"}); }
 function isToday(value:string){ return new Date(value).toDateString()===new Date().toDateString(); }
+const NEXA_VAPID_PUBLIC_KEY="BKuJo8QKGFW_sJhue7Z_elbTZO6_hfKj433TYxKOkUFtVLzennx6rsNyCuQeq_h9EpKnW5vSsDMZ5yYESUS3rAA";
+function urlBase64ToUint8Array(value:string){const padding="=".repeat((4-(value.length%4))%4);const base64=(value+padding).replace(/-/g,"+").replace(/_/g,"/");const raw=window.atob(base64);return Uint8Array.from(Array.from(raw).map(char=>char.charCodeAt(0)));}
 function whatsapp(){ window.open("https://wa.me/2349042987385","_blank","noopener,noreferrer"); }
 
 function BottomNav({tab,setTab}:{tab:Tab;setTab:(tab:Tab)=>void}) {
@@ -229,15 +231,58 @@ function Notes({userId}:{userId:string}) {
 }
 
 function Reminders({userId}:{userId:string}) {
-  const [items,setItems]=useState<Reminder[]>([]); const [permission,setPermission]=useState<string>("default"); const [showAdd,setShowAdd]=useState(false);
-  async function load(){const {data}=await supabase().from("reminders").select("id,title,remind_at,completed_at").eq("user_id",userId).order("remind_at",{ascending:true}).limit(100);setItems((data||[]) as Reminder[]);}
-  useEffect(()=>{void load();if("Notification" in window)setPermission(Notification.permission);
-    const interval=window.setInterval(async()=>{const {data}=await supabase().from("reminders").select("id,title,remind_at").eq("user_id",userId).is("completed_at",null).lte("remind_at",new Date().toISOString()).limit(10);for(const reminder of (data||[]) as {id:string;title:string;remind_at:string}[]){if("Notification" in window&&Notification.permission==="granted")new Notification("NEXA reminder",{body:reminder.title});await supabase().from("reminders").update({completed_at:new Date().toISOString()}).eq("id",reminder.id).eq("user_id",userId);}if(data?.length)void load();},30000);
+  const [items,setItems]=useState<Reminder[]>([]); const [permission,setPermission]=useState<string>("default"); const [pushEnabled,setPushEnabled]=useState(false); const [pushMessage,setPushMessage]=useState(""); const [showAdd,setShowAdd]=useState(false);
+  async function load(){const {data}=await supabase().from("reminders").select("id,title,remind_at,completed_at,notified_at").eq("user_id",userId).order("remind_at",{ascending:true}).limit(100);setItems((data||[]) as Reminder[]);}
+  async function enablePush(){
+    setPushMessage("");
+    if(!("Notification" in window)||!("serviceWorker" in navigator)||!("PushManager" in window)){setPushMessage("This browser does not support background alarm notifications.");return;}
+    const permissionResult=await Notification.requestPermission();
+    setPermission(permissionResult);
+    if(permissionResult!=="granted"){setPushMessage("Notification permission is required for alarms when NEXA is closed.");return;}
+    try{
+      const registration=await navigator.serviceWorker.register("/sw.js");
+      const ready=await navigator.serviceWorker.ready;
+      let subscription=await ready.pushManager.getSubscription();
+      if(!subscription) subscription=await ready.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(NEXA_VAPID_PUBLIC_KEY)});
+      const json=subscription.toJSON();
+      const endpoint=subscription.endpoint;
+      const p256dh=json.keys?.p256dh;
+      const auth=json.keys?.auth;
+      if(!endpoint||!p256dh||!auth) throw new Error("Could not read the push subscription.");
+      const {error}=await supabase().from("push_subscriptions").upsert({user_id:userId,endpoint,p256dh,auth,user_agent:navigator.userAgent,updated_at:new Date().toISOString()},{onConflict:"endpoint"});
+      if(error) throw error;
+      setPushEnabled(true);
+      setPushMessage("Background alarms are enabled. NEXA can alert you even when the app is closed.");
+    }catch(error){
+      setPushMessage(error instanceof Error?error.message:"Could not enable background alarms.");
+    }
+  }
+  async function fallbackDueReminders(){
+    if(!("Notification" in window)||Notification.permission!=="granted") return;
+    const now=new Date().toISOString();
+    const {data}=await supabase().from("reminders").select("id,title,remind_at").eq("user_id",userId).is("completed_at",null).is("notified_at",null).lte("remind_at",now).limit(10);
+    for(const reminder of (data||[]) as {id:string;title:string;remind_at:string}[]){
+      new Notification("NEXA reminder",{body:reminder.title,tag:"nexa-reminder-"+reminder.id,requireInteraction:true});
+      await supabase().from("reminders").update({notified_at:new Date().toISOString()}).eq("id",reminder.id).eq("user_id",userId).is("notified_at",null);
+    }
+    if(data?.length) await load();
+  }
+  useEffect(()=>{
+    void load();
+    if("Notification" in window)setPermission(Notification.permission);
+    if("serviceWorker" in navigator) navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).then(sub=>setPushEnabled(Boolean(sub))).catch(()=>undefined);
+    void fallbackDueReminders();
+    const interval=window.setInterval(()=>{void fallbackDueReminders()},30000);
     return()=>window.clearInterval(interval);
   },[userId]);
-  async function notify(){if(!("Notification" in window))return;const p=await Notification.requestPermission();setPermission(p);}
   async function complete(id:string){await supabase().from("reminders").update({completed_at:new Date().toISOString()}).eq("id",id).eq("user_id",userId);await load();}
-  return <div className="screen scrollScreen"><Header title="Reminders" subtitle="Set it once. NEXA keeps watch."/><div className="reminderIntro"><div><strong>Alarm-style alerts</strong><span>Enable browser notifications for reminders while NEXA is open.</span></div><button onClick={()=>void notify()}>{permission==="granted"?"Enabled":"Enable"}</button></div><button className="primaryWide" onClick={()=>setShowAdd(true)}>＋ Set a reminder</button><div className="stack">{items.length===0?<div className="emptyState">No reminders yet.</div>:items.map(r=><div className={r.completed_at?"reminderCard completed":"reminderCard"} key={r.id}><span className="alarmIcon">◷</span><div><strong>{r.title}</strong><small>{new Date(r.remind_at).toLocaleString([], {weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</small></div>{!r.completed_at&&<button onClick={()=>void complete(r.id)}>Done</button>}</div>)}</div>{showAdd&&<AddReminder userId={userId} onClose={()=>setShowAdd(false)} onCreated={load}/>}</div>;
+  return <div className="screen scrollScreen"><Header title="Reminders" subtitle="Set it once. NEXA keeps watch."/>
+    <div className="reminderIntro"><div><strong>{pushEnabled?"Background alarms active":"Alarm-style alerts"}</strong><span>{pushEnabled?"NEXA can send push alerts even when the app is closed.":"Enable notifications and push once so reminders can reach you when NEXA is closed."}</span></div><button onClick={()=>void enablePush()}>{pushEnabled?"Enabled":"Enable alarms"}</button></div>
+    {pushMessage&&<div className="emptyState">{pushMessage}</div>}
+    <button className="primaryWide" onClick={()=>setShowAdd(true)}>＋ Set a reminder</button>
+    <div className="stack">{items.length===0?<div className="emptyState">No reminders yet.</div>:items.map(r=><div className={r.completed_at?"reminderCard completed":"reminderCard"} key={r.id}><span className="alarmIcon">◷</span><div><strong>{r.title}</strong><small>{new Date(r.remind_at).toLocaleString([], {weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</small></div>{!r.completed_at&&<button onClick={()=>void complete(r.id)}>Done</button>}</div>)}</div>
+    {showAdd&&<AddReminder userId={userId} onClose={()=>setShowAdd(false)} onCreated={load}/>}
+  </div>;
 }
 
 function Goals({userId}:{userId:string}) {
