@@ -1,4 +1,4 @@
 project_id = "yymlkzarekwlqzvsafgk"
 
 [functions.nexa-assistant]
-verify_jwt = true
+verify_jwt = false
