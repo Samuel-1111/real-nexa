@@ -1,7 +1,7 @@
 import { withSupabase } from "npm:@supabase/server@1.8.0";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-const MODEL = "gpt-5.6";
+const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -28,25 +28,30 @@ const tools = [
   {type:"function",function:{name:"list_goals",description:"List the user's goals.",parameters:{type:"object",properties:{},required:[]}}}
 ];
 
-async function openai(messages:unknown[]){
-  if(!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured.");
+const geminiTools = [{functionDeclarations: tools.map((tool:any)=>tool.function)}];
+
+async function gemini(contents:any[],systemInstruction:string){
+  if(!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured.");
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),45000);
   try{
-    const response=await fetch("https://api.openai.com/v1/chat/completions",{
+    const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,{
       method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":`Bearer ${OPENAI_API_KEY}`},
+      headers:{
+        "Content-Type":"application/json",
+        "x-goog-api-key":GEMINI_API_KEY
+      },
       body:JSON.stringify({
-        model:MODEL,
-        messages,
-        tools,
-        tool_choice:"auto",
-        max_completion_tokens:1200
+        systemInstruction:{parts:[{text:systemInstruction}]},
+        contents,
+        tools:geminiTools,
+        generationConfig:{maxOutputTokens:1200}
       }),
       signal:controller.signal
     });
-    if(!response.ok) throw new Error(await response.text());
-    return await response.json();
+    const raw=await response.text();
+    if(!response.ok) throw new Error(`Gemini ${response.status}: ${raw.slice(0,1000)}`);
+    return JSON.parse(raw);
   } finally {
     clearTimeout(timeout);
   }
