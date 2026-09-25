@@ -18,14 +18,17 @@ export default function InstallPrompt(){
     if(standalone){setInstalled(true);return;}
     const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
     setIos(isIOS);
-    const timer=window.setTimeout(()=>setVisible(true),1100);
-    if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>undefined);
+    // Show NEXA's install UI as soon as the page is ready. Browsers that support
+    // the native PWA prompt will use it; browsers that do not still get clear
+    // platform-specific installation instructions.
+    setVisible(true);
 
+    if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>undefined);
     const capture=(event:Event)=>{event.preventDefault();setInstallEvent(event as BeforeInstallPromptEvent);setVisible(true);};
     const done=()=>{setInstalled(true);setVisible(false);setInstallEvent(null);};
     window.addEventListener("beforeinstallprompt",capture);
     window.addEventListener("appinstalled",done);
-    return()=>{clearTimeout(timer);window.removeEventListener("beforeinstallprompt",capture);window.removeEventListener("appinstalled",done);};
+    return()=>{window.removeEventListener("beforeinstallprompt",capture);window.removeEventListener("appinstalled",done);};
   },[]);
 
   async function install(){
@@ -36,17 +39,17 @@ export default function InstallPrompt(){
       return;
     }
     if(ios){
-      window.alert("To install NEXA on iPhone: tap Share in Safari, then choose “Add to Home Screen”.");
+      window.alert("Install NEXA: tap Share in Safari, then choose “Add to Home Screen”.");
     }else{
-      window.alert("Open your browser menu and choose “Install NEXA” or “Add to Home screen”.");
+      window.alert("Install NEXA: open your browser menu and choose “Install app” or “Add to Home screen”.");
     }
   }
 
   if(installed||!visible)return null;
   return <aside className="installBanner" role="dialog" aria-label="Install NEXA">
     <div className="installIcon">N</div>
-    <div className="installCopy"><strong>Install NEXA</strong><span>Add NEXA to your Home Screen for a real app-like experience.</span></div>
-    <button className="installButton" onClick={install}>Install</button>
+    <div className="installCopy"><strong>Install NEXA</strong><span>Install NEXA on this phone for a full app-like experience.</span></div>
+    <button className="installButton" onClick={()=>void install()}>Install</button>
     <button className="installClose" onClick={()=>setVisible(false)} aria-label="Close">×</button>
   </aside>;
 }
