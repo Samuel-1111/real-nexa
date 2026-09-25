@@ -235,6 +235,9 @@ function Reminders({userId}:{userId:string}) {
   async function load(){const {data}=await supabase().from("reminders").select("id,title,remind_at,completed_at,notified_at").eq("user_id",userId).order("remind_at",{ascending:true}).limit(100);setItems((data||[]) as Reminder[]);}
   async function enablePush(){
     setPushMessage("");
+    const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone=window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & {standalone?:boolean}).standalone);
+    if(isIOS&&!standalone){setPushMessage("On iPhone/iPad, install NEXA to your Home Screen first, then enable alarms.");return;}
     if(!("Notification" in window)||!("serviceWorker" in navigator)||!("PushManager" in window)){setPushMessage("This browser does not support background alarm notifications.");return;}
     const permissionResult=await Notification.requestPermission();
     setPermission(permissionResult);
