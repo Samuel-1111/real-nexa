@@ -24,3 +24,5 @@ jobs:
         with:
           version: latest
       - run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+
+# Deployment is triggered automatically on main changes.
