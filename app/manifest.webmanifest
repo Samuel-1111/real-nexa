@@ -2,6 +2,7 @@
   "name": "NEXA — Your Personal Assistant",
   "short_name": "NEXA",
   "description": "Your personal assistant for answers, tasks, reminders, notes and planning.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
