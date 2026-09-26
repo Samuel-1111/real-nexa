@@ -6,5 +6,6 @@ enable_confirmations = false
 
 [functions.nexa-assistant]
 verify_jwt = false
+import_map = "./functions/nexa-assistant/deno.json"
 
 # Email confirmation intentionally disabled for password-based NEXA signup.
