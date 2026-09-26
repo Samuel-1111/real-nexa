@@ -1,4 +1,8 @@
 project_id = "yymlkzarekwlqzvsafgk"
 
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
 [functions.nexa-assistant]
 verify_jwt = false
