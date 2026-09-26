@@ -23,6 +23,7 @@ jobs:
       - uses: supabase/setup-cli@v2
         with:
           version: latest
+      - run: supabase config push --project-ref "$SUPABASE_PROJECT_REF"
       - run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
 
-# Deployment is triggered automatically on main changes.
+# Production Supabase configuration and Edge Functions deploy automatically from main.
