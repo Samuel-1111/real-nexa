@@ -6,3 +6,5 @@ enable_confirmations = false
 
 [functions.nexa-assistant]
 verify_jwt = false
+
+# Email confirmation intentionally disabled for password-based NEXA signup.
