@@ -1,5 +1,5 @@
-const CACHE_NAME="nexa-shell-v5";
-const APP_SHELL=["/","/auth","/auth/reset","/tools","/manifest.webmanifest","/icon-192.svg","/icon-512.svg"];
+const CACHE_NAME="nexa-shell-v6";
+const APP_SHELL=["/","/auth","/auth/reset","/manifest.webmanifest","/icon-192.svg","/icon-512.svg"];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(APP_SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener("fetch",event=>{const r=event.request;if(r.method!=="GET")return;if(r.mode==="navigate"){event.respondWith(fetch(r).then(res=>{const c=res.clone();caches.open(CACHE_NAME).then(x=>x.put(r,c));return res}).catch(()=>caches.match(r).then(x=>x||caches.match("/"))));return}if(r.url.startsWith(self.location.origin))event.respondWith(caches.match(r).then(x=>x||fetch(r).then(res=>{if(res.ok&&r.destination!=="document"){const c=res.clone();caches.open(CACHE_NAME).then(x=>x.put(r,c))}return res})))});
