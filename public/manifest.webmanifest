@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "NEXA — Your Personal Assistant",
+  "short_name": "NEXA",
+  "description": "NEXA is your personal assistant for tasks, reminders, notes, planning and AI conversations.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#020817",
+  "theme_color": "#020817",
+  "lang": "en-NG",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {"src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable"},
+    {"src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
