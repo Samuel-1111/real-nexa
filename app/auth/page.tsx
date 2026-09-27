@@ -15,19 +15,28 @@ function AuthForm() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) window.location.replace("/home");
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled && data.session) window.location.replace("/home");
     }).catch(() => undefined);
-  }, []);
+    return () => { cancelled = true; };
+  }, [supabase]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError("");
     const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
 
-    if (!cleanEmail || !password || (mode === "signup" && !name.trim())) {
+    if (!cleanEmail || !password || (mode === "signup" && !cleanName)) {
       setError(mode === "signup" ? "Enter your name, Gmail/email and password." : "Enter your Gmail/email and password.");
+      setBusy(false);
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       setBusy(false);
       return;
     }
@@ -44,24 +53,20 @@ function AuthForm() {
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
-      options: { data: { display_name: name.trim(), full_name: name.trim() } },
+      options: { data: { display_name: cleanName, full_name: cleanName } },
     });
-
     if (error) { setError(error.message); setBusy(false); return; }
 
-    // When email confirmation is disabled, Supabase returns a session immediately.
-    // NEXA intentionally has no Google, OTP, magic-link, or extra in-app authentication screen.
+    localStorage.setItem("nexa_has_account", "1");
+    localStorage.setItem("nexa_landing_seen", "1");
+
+    // Password-only NEXA onboarding: no Google, OTP, magic-link or extra authentication step.
     if (!data.session) {
-      setError("Your account was created, but this NEXA backend still requires email confirmation. Please disable email confirmation in the Supabase Auth settings before using password-only signup.");
-      localStorage.setItem("nexa_has_account", "1");
-      localStorage.setItem("nexa_landing_seen", "1");
+      setError("Account created. Please log in with your Gmail/email and password.");
       setMode("login");
       setBusy(false);
       return;
     }
-
-    localStorage.setItem("nexa_has_account", "1");
-    localStorage.setItem("nexa_landing_seen", "1");
     window.location.replace("/home");
   }
 
