@@ -35,6 +35,8 @@ function AuthForm() {
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (error) { setError(error.message); setBusy(false); return; }
+      localStorage.setItem("nexa_has_account", "1");
+      localStorage.setItem("nexa_landing_seen", "1");
       window.location.replace("/home");
       return;
     }
@@ -48,12 +50,18 @@ function AuthForm() {
     if (error) { setError(error.message); setBusy(false); return; }
 
     if (!data.session) {
-      setError("Account created, but automatic login is not enabled yet. Please log in with your email and password.");
+      // Email confirmation may be enabled in the Supabase project. The app itself
+      // does not use Google, OTP, magic links, or any extra authentication step.
+      setError("Account created. If email confirmation is enabled, confirm your email, then log in with your Gmail/email and password.");
+      localStorage.setItem("nexa_has_account", "1");
+      localStorage.setItem("nexa_landing_seen", "1");
       setMode("login");
       setBusy(false);
       return;
     }
 
+    localStorage.setItem("nexa_has_account", "1");
+    localStorage.setItem("nexa_landing_seen", "1");
     window.location.replace("/home");
   }
 
