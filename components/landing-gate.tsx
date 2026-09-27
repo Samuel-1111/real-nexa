@@ -8,19 +8,25 @@ export default function LandingGate(){
   if(window.location.pathname!=="/")return;
   const seen=localStorage.getItem("nexa_landing_seen")==="1";
   const hasAccount=localStorage.getItem("nexa_has_account")==="1";
+  let cancelled=false;
   createClient().auth.getUser().then(({data})=>{
+   if(cancelled)return;
+   // An authenticated user always bypasses onboarding.
    if(data.user){window.location.replace("/home");return;}
-   // Returning users should never be forced through the marketing landing page again.
-   if(seen||hasAccount){window.location.replace("/auth?mode=login");return;}
+   // A returning user should enter the app route directly. If the session has
+   // expired, the app's normal auth guard can request login without showing onboarding.
+   if(seen||hasAccount){window.location.replace("/home");return;}
    setShow(true);
-   const t=window.setTimeout(()=>setReady(true),3500);
+   const t=window.setTimeout(()=>setReady(true),3000);
    return()=>window.clearTimeout(t);
   }).catch(()=>{
-   if(seen||hasAccount){window.location.replace("/auth?mode=login");return;}
+   if(cancelled)return;
+   if(seen||hasAccount){window.location.replace("/home");return;}
    setShow(true);
-   const t=window.setTimeout(()=>setReady(true),3500);
+   const t=window.setTimeout(()=>setReady(true),3000);
    return()=>window.clearTimeout(t);
   });
+  return()=>{cancelled=true;};
  },[]);
  if(!show)return null;
  return <div role="dialog" aria-label="Welcome to NEXA" style={{position:"fixed",inset:0,zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",background:"#020817",color:"white",textAlign:"center",fontFamily:"inherit"}}>
