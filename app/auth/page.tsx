@@ -44,15 +44,15 @@ function AuthForm() {
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
-      options: { data: { display_name: name.trim() } },
+      options: { data: { display_name: name.trim(), full_name: name.trim() } },
     });
 
     if (error) { setError(error.message); setBusy(false); return; }
 
+    // When email confirmation is disabled, Supabase returns a session immediately.
+    // NEXA intentionally has no Google, OTP, magic-link, or extra in-app authentication screen.
     if (!data.session) {
-      // Email confirmation may be enabled in the Supabase project. The app itself
-      // does not use Google, OTP, magic links, or any extra authentication step.
-      setError("Account created. If email confirmation is enabled, confirm your email, then log in with your Gmail/email and password.");
+      setError("Your account was created, but this NEXA backend still requires email confirmation. Please disable email confirmation in the Supabase Auth settings before using password-only signup.");
       localStorage.setItem("nexa_has_account", "1");
       localStorage.setItem("nexa_landing_seen", "1");
       setMode("login");
