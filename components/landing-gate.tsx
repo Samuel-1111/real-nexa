@@ -7,13 +7,20 @@ export default function LandingGate(){
  useEffect(()=>{
   if(window.location.pathname!=="/")return;
   const seen=localStorage.getItem("nexa_landing_seen")==="1";
-  if(seen){
-   createClient().auth.getUser().then(({data})=>{if(data.user)window.location.replace("/home");else setShow(true)}).catch(()=>setShow(true));
-   return;
-  }
-  setShow(true);
-  const t=window.setTimeout(()=>setReady(true),3500);
-  return()=>window.clearTimeout(t);
+  const hasAccount=localStorage.getItem("nexa_has_account")==="1";
+  createClient().auth.getUser().then(({data})=>{
+   if(data.user){window.location.replace("/home");return;}
+   // Returning users should never be forced through the marketing landing page again.
+   if(seen||hasAccount){window.location.replace("/auth?mode=login");return;}
+   setShow(true);
+   const t=window.setTimeout(()=>setReady(true),3500);
+   return()=>window.clearTimeout(t);
+  }).catch(()=>{
+   if(seen||hasAccount){window.location.replace("/auth?mode=login");return;}
+   setShow(true);
+   const t=window.setTimeout(()=>setReady(true),3500);
+   return()=>window.clearTimeout(t);
+  });
  },[]);
  if(!show)return null;
  return <div role="dialog" aria-label="Welcome to NEXA" style={{position:"fixed",inset:0,zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",background:"#020817",color:"white",textAlign:"center",fontFamily:"inherit"}}>
