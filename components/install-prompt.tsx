@@ -16,6 +16,10 @@ export default function InstallPrompt() {
   const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
+    if (/NEXA-Android\//i.test(navigator.userAgent)) {
+      setInstalled(true);
+      return;
+    }
     const standalone = window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as NavigatorWithStandalone).standalone);
     if (standalone) { setInstalled(true); return; }
 
@@ -36,9 +40,6 @@ export default function InstallPrompt() {
 
     window.addEventListener("beforeinstallprompt", capture);
     window.addEventListener("appinstalled", done);
-
-    // Keep an install option visible immediately on browsers that do not
-    // expose beforeinstallprompt. The browser still controls native install.
     setVisible(true);
 
     return () => {
@@ -92,9 +93,6 @@ export default function InstallPrompt() {
                   <p>If it does not, open the browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p>
                 </>
               )}
-              <p style={{ fontSize: 12, opacity: 0.7 }}>
-                NEXA is a Progressive Web App. A website cannot force-install an app or force a browser's native prompt where that browser does not provide one. This fallback keeps installation available on unsupported browsers.
-              </p>
             </div>
           </aside>
         </div>
