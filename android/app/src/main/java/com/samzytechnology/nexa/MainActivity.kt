@@ -40,7 +40,7 @@ class MainActivity : Activity() {
             allowContentAccess = true
             javaScriptCanOpenWindowsAutomatically = true
             setSupportZoom(false)
-            userAgentString = userAgentString + " NEXA-Android/1.0"
+            userAgentString = userAgentString + " NEXA-Android/1.1"
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
             WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_OFF)
@@ -62,6 +62,26 @@ class MainActivity : Activity() {
 
         requestPermissionsIfNeeded()
         webView.loadUrl("https://real-nexa.vercel.app/welcome")
+        handleWakeIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleWakeIntent(intent)
+    }
+
+    private fun handleWakeIntent(intent: Intent?) {
+        val query = intent?.getStringExtra(NexaVoiceService.EXTRA_QUERY)?.trim() ?: return
+        if (query.isEmpty()) return
+        webView.postDelayed({
+            val safe = org.json.JSONObject.quote(query)
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('nexa-native-voice',{detail:{query:$safe}}));",
+                null
+            )
+        }, 1200)
+        intent?.removeExtra(NexaVoiceService.EXTRA_QUERY)
     }
 
     private fun requestPermissionsIfNeeded() {
@@ -84,14 +104,9 @@ class NexaNativeBridge(private val context: Context, private val alarmManager: A
     @JavascriptInterface
     fun scheduleReminder(title: String, triggerAtMillis: Long): Boolean {
         if (triggerAtMillis <= System.currentTimeMillis()) return false
-        val intent = Intent(context, ReminderAlarmReceiver::class.java).apply {
-            putExtra("title", title.take(180))
-        }
+        val intent = Intent(context, ReminderAlarmReceiver::class.java).apply { putExtra("title", title.take(180)) }
         val requestCode = (triggerAtMillis xor title.hashCode().toLong()).toInt()
-        val pending = android.app.PendingIntent.getBroadcast(
-            context, requestCode, intent,
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-        )
+        val pending = android.app.PendingIntent.getBroadcast(context, requestCode, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
         alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
         return true
     }
@@ -100,21 +115,32 @@ class NexaNativeBridge(private val context: Context, private val alarmManager: A
     fun cancelReminder(triggerAtMillis: Long, title: String): Boolean {
         val intent = Intent(context, ReminderAlarmReceiver::class.java)
         val requestCode = (triggerAtMillis xor title.hashCode().toLong()).toInt()
-        val pending = android.app.PendingIntent.getBroadcast(
-            context, requestCode, intent,
-            android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE
-        ) ?: return true
+        val pending = android.app.PendingIntent.getBroadcast(context, requestCode, intent, android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE) ?: return true
         alarmManager.cancel(pending)
         pending.cancel()
         return true
     }
 
     @JavascriptInterface
+    fun startVoiceService(): Boolean {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return false
+        return try {
+            val intent = Intent(context, NexaVoiceService::class.java)
+            ContextCompat.startForegroundService(context, intent)
+            true
+        } catch (_: Exception) { false }
+    }
+
+    @JavascriptInterface
+    fun stopVoiceService(): Boolean {
+        return context.stopService(Intent(context, NexaVoiceService::class.java))
+    }
+
+    @JavascriptInterface
     fun setFlashlight(enabled: Boolean): Boolean {
         return try {
             val camera = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-            val id = camera.cameraIdList.firstOrNull { camera.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }
-                ?: return false
+            val id = camera.cameraIdList.firstOrNull { camera.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true } ?: return false
             camera.setTorchMode(id, enabled)
             true
         } catch (_: Exception) { false }
