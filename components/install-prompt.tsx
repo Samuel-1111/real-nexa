@@ -6,7 +6,6 @@ type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
-
 type NavigatorWithStandalone = Navigator & { standalone?: boolean };
 
 export default function InstallPrompt() {
@@ -17,23 +16,13 @@ export default function InstallPrompt() {
   const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      Boolean((navigator as NavigatorWithStandalone).standalone);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as NavigatorWithStandalone).standalone);
+    if (standalone) { setInstalled(true); return; }
 
-    if (standalone) {
-      setInstalled(true);
-      return;
-    }
+    setIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
 
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    setIos(isIOS);
-
-    // Register/update the service worker immediately so the browser can
-    // recognize NEXA as an installable PWA as early as possible.
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js", { updateViaCache: "none" })
+      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
         .then((registration) => registration.update())
         .catch(() => undefined);
     }
@@ -43,23 +32,16 @@ export default function InstallPrompt() {
       setInstallEvent(event as BeforeInstallPromptEvent);
       setVisible(true);
     };
-
-    const done = () => {
-      setInstalled(true);
-      setVisible(false);
-      setInstallEvent(null);
-    };
+    const done = () => { setInstalled(true); setVisible(false); setInstallEvent(null); };
 
     window.addEventListener("beforeinstallprompt", capture);
     window.addEventListener("appinstalled", done);
 
-    // Some browsers do not expose beforeinstallprompt (notably iOS Safari).
-    // Show our install control so the user still gets the correct platform
-    // instructions instead of being left without an install option.
-    const fallbackTimer = window.setTimeout(() => setVisible(true), 1200);
+    // Keep an install option visible immediately on browsers that do not
+    // expose beforeinstallprompt. The browser still controls native install.
+    setVisible(true);
 
     return () => {
-      window.clearTimeout(fallbackTimer);
       window.removeEventListener("beforeinstallprompt", capture);
       window.removeEventListener("appinstalled", done);
     };
@@ -84,24 +66,14 @@ export default function InstallPrompt() {
         <div className="installIcon">N</div>
         <div className="installCopy">
           <strong>Install NEXA</strong>
-          <span>Add NEXA to your phone like a real app.</span>
+          <span>Use NEXA like a real app on your phone.</span>
         </div>
-        <button className="installButton" onClick={() => void install()}>
-          Install
-        </button>
-        <button className="installClose" onClick={() => setVisible(false)} aria-label="Close">
-          ×
-        </button>
+        <button className="installButton" onClick={() => void install()}>Install</button>
+        <button className="installClose" onClick={() => setVisible(false)} aria-label="Close">×</button>
       </aside>
 
       {showInstructions && (
-        <div
-          className="sheetBackdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="NEXA installation instructions"
-          onMouseDown={() => setShowInstructions(false)}
-        >
+        <div className="sheetBackdrop" role="dialog" aria-modal="true" aria-label="NEXA installation instructions" onMouseDown={() => setShowInstructions(false)}>
           <aside className="sheet" onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: 430 }}>
             <div className="sheetHead">
               <h3>Install NEXA</h3>
@@ -111,17 +83,17 @@ export default function InstallPrompt() {
               {ios ? (
                 <>
                   <strong>iPhone / iPad</strong>
-                  <p>Open NEXA in Safari, tap <b>Share</b>, then choose <b>Add to Home Screen</b>.</p>
+                  <p>Use Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. Confirm <b>Add</b>.</p>
                 </>
               ) : (
                 <>
-                  <strong>Android / Chrome</strong>
-                  <p>If Chrome exposes the native PWA prompt, tap <b>Install</b> and NEXA will be added to your home screen.</p>
-                  <p>If your browser does not expose the prompt, open its browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p>
+                  <strong>Android</strong>
+                  <p>If your browser supports PWA installation, this button will open its native <b>Install app</b> prompt.</p>
+                  <p>If it does not, open the browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p>
                 </>
               )}
               <p style={{ fontSize: 12, opacity: 0.7 }}>
-                NEXA is a Progressive Web App. Browsers control whether the native installation prompt is available; a website cannot force-install an application on a browser that does not support PWA installation.
+                NEXA is a Progressive Web App. A website cannot force-install an app or force a browser's native prompt where that browser does not provide one. This fallback keeps installation available on unsupported browsers.
               </p>
             </div>
           </aside>
