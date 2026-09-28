@@ -3,9 +3,6 @@ name: Build and Publish NEXA APK
 on:
   push:
     branches: [main]
-    paths:
-      - 'android/**'
-      - '.github/workflows/build-nexa-apk.yml'
   workflow_dispatch:
 
 permissions:
