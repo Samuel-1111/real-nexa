@@ -3,6 +3,7 @@ import "./globals.css";
 import LandingGate from "@/components/landing-gate";
 import InstallPrompt from "@/components/install-prompt";
 import KoraPaymentBridge from "@/components/kora-payment-bridge";
+import NativeReminderSync from "@/components/native-reminder-sync";
 
 export const metadata: Metadata = {
   title: "NEXA — Your Personal Assistant",
@@ -14,4 +15,4 @@ export const metadata: Metadata = {
   formatDetection: { telephone:false }
 };
 export const viewport: Viewport = { width:"device-width", initialScale:1, maximumScale:1, userScalable:false, viewportFit:"cover", themeColor:"#020817", colorScheme:"dark" };
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><head><meta name="mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-title" content="NEXA"/></head><body>{children}<LandingGate/><InstallPrompt/><KoraPaymentBridge/></body></html>}
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><head><meta name="mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-title" content="NEXA"/></head><body>{children}<LandingGate/><InstallPrompt/><KoraPaymentBridge/><NativeReminderSync/></body></html>}
