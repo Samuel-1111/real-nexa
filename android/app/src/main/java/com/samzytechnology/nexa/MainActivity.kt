@@ -30,7 +30,6 @@ class MainActivity : Activity() {
         alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         webView = WebView(this)
         setContentView(webView)
-
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -40,29 +39,24 @@ class MainActivity : Activity() {
             allowContentAccess = true
             javaScriptCanOpenWindowsAutomatically = true
             setSupportZoom(false)
-            userAgentString = userAgentString + " NEXA-Android/1.1"
+            userAgentString = userAgentString + " NEXA-Android/1.2"
         }
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-            WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_OFF)
-        }
-
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_OFF)
         webView.addJavascriptInterface(NexaNativeBridge(this, alarmManager), "NexaNative")
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = false
-        }
+        webView.webViewClient = object : WebViewClient() { override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = false }
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) {
-                runOnUiThread {
-                    if (request.resources.any { it == PermissionRequest.RESOURCE_AUDIO_CAPTURE || it == PermissionRequest.RESOURCE_VIDEO_CAPTURE }) {
-                        request.grant(request.resources)
-                    }
-                }
+                runOnUiThread { request.grant(request.resources) }
             }
         }
-
         requestPermissionsIfNeeded()
         webView.loadUrl("https://real-nexa.vercel.app/welcome")
         handleWakeIntent(intent)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001 && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startVoiceService()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -76,28 +70,24 @@ class MainActivity : Activity() {
         if (query.isEmpty()) return
         webView.postDelayed({
             val safe = org.json.JSONObject.quote(query)
-            webView.evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('nexa-native-voice',{detail:{query:$safe}}));",
-                null
-            )
+            webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('nexa-native-voice',{detail:{query:$safe}}));", null)
         }, 1200)
         intent?.removeExtra(NexaVoiceService.EXTRA_QUERY)
     }
 
     private fun requestPermissionsIfNeeded() {
         val needed = mutableListOf<String>()
-        listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA).forEach {
-            if (ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED) needed.add(it)
-        }
-        if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            needed.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (needed.isNotEmpty()) ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1001)
+        listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA).forEach { if (ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED) needed.add(it) }
+        if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (needed.isNotEmpty()) ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1001) else startVoiceService()
     }
 
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+    private fun startVoiceService() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+        try { ContextCompat.startForegroundService(this, Intent(this, NexaVoiceService::class.java)) } catch (_: Exception) { }
     }
+
+    override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 }
 
 class NexaNativeBridge(private val context: Context, private val alarmManager: AlarmManager) {
@@ -116,43 +106,24 @@ class NexaNativeBridge(private val context: Context, private val alarmManager: A
         val intent = Intent(context, ReminderAlarmReceiver::class.java)
         val requestCode = (triggerAtMillis xor title.hashCode().toLong()).toInt()
         val pending = android.app.PendingIntent.getBroadcast(context, requestCode, intent, android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE) ?: return true
-        alarmManager.cancel(pending)
-        pending.cancel()
-        return true
+        alarmManager.cancel(pending); pending.cancel(); return true
     }
 
-    @JavascriptInterface
-    fun startVoiceService(): Boolean {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return false
-        return try {
-            val intent = Intent(context, NexaVoiceService::class.java)
-            ContextCompat.startForegroundService(context, intent)
-            true
-        } catch (_: Exception) { false }
-    }
+    @JavascriptInterface fun startVoiceService(): Boolean { if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return false; return try { ContextCompat.startForegroundService(context, Intent(context, NexaVoiceService::class.java)); true } catch (_: Exception) { false } }
+    @JavascriptInterface fun stopVoiceService(): Boolean = context.stopService(Intent(context, NexaVoiceService::class.java))
 
     @JavascriptInterface
-    fun stopVoiceService(): Boolean {
-        return context.stopService(Intent(context, NexaVoiceService::class.java))
-    }
-
-    @JavascriptInterface
-    fun setFlashlight(enabled: Boolean): Boolean {
-        return try {
-            val camera = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-            val id = camera.cameraIdList.firstOrNull { camera.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true } ?: return false
-            camera.setTorchMode(id, enabled)
-            true
-        } catch (_: Exception) { false }
-    }
+    fun setFlashlight(enabled: Boolean): Boolean = try {
+        val camera = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val id = camera.cameraIdList.firstOrNull { camera.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true } ?: return false
+        camera.setTorchMode(id, enabled); true
+    } catch (_: Exception) { false }
 
     @JavascriptInterface
     fun openApp(packageName: String): Boolean {
         val allowed = setOf("com.whatsapp", "com.google.android.youtube", "com.android.camera", "com.google.android.GoogleCamera", context.packageName)
         if (packageName !in allowed) return false
         val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-        return true
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); context.startActivity(intent); return true
     }
 }
