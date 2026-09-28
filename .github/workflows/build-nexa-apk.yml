@@ -86,11 +86,9 @@ jobs:
           retention-days: 30
 
       - name: Publish APK release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="nexa-${GITHUB.run_number}"
-          gh release create "$TAG" android/app/build/outputs/apk/release/NEXA.apk \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "NEXA Android ${TAG}" \
-            --notes "NEXA Android investor/public test build. Install the APK directly on Android."
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nexa-${{ github.run_number }}
+          name: NEXA Android ${{ github.run_number }}
+          body: NEXA Android investor/public test build. Install the APK directly on Android.
+          files: android/app/build/outputs/apk/release/NEXA.apk
