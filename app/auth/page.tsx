@@ -12,6 +12,7 @@ function AuthForm(){
   const [password,setPassword]=useState("");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [notice,setNotice]=useState("");
   const supabase=createClient();
 
   useEffect(()=>{
@@ -25,7 +26,7 @@ function AuthForm(){
     const cleanName=name.trim(),cleanEmail=email.trim().toLowerCase();
     if(!cleanEmail||!password||(mode==="signup"&&!cleanName)){setError(mode==="signup"?"Enter your name, email and password.":"Enter your email and password.");return;}
     if(password.length<8){setError("Password must be at least 8 characters.");return;}
-    setBusy(true);setError("");
+    setBusy(true);setError("");setNotice("");
 
     if(mode==="login"){
       const {error}=await supabase.auth.signInWithPassword({email:cleanEmail,password});
@@ -36,8 +37,18 @@ function AuthForm(){
     const {data,error}=await supabase.auth.signUp({email:cleanEmail,password,options:{data:{display_name:cleanName,full_name:cleanName}}});
     if(error){setError(error.message);setBusy(false);return;}
     localStorage.setItem("nexa_has_account","1");localStorage.setItem("nexa_landing_seen","1");
-    // No verification page is shown. With Supabase Confirm Email disabled, signUp returns a session and NEXA opens immediately.
-    if(!data.session){setError("NEXA authentication still has email confirmation enabled. Turn off Confirm Email in Supabase Auth settings to keep account creation completely direct.");setBusy(false);return;}
+
+    // NEXA does not use an email-verification screen. If Supabase is configured
+    // to require confirmation, take the user directly to login rather than
+    // showing a verification page. For immediate access, disable Confirm Email
+    // in Supabase Auth > Email provider settings.
+    if(!data.session){
+      setNotice("Account created. Log in to continue to NEXA.");
+      setMode("login");
+      setPassword("");
+      setBusy(false);
+      return;
+    }
     window.location.replace("/home");
   }
 
@@ -51,10 +62,11 @@ function AuthForm(){
       {mode==="signup"&&<label>Full name<input required autoComplete="name" placeholder="Your full name" value={name} onChange={e=>setName(e.target.value)}/></label>}
       <label>Email address<input required type="email" autoComplete="email" placeholder="you@gmail.com" value={email} onChange={e=>setEmail(e.target.value)}/></label>
       <label>Password<input required type="password" autoComplete={mode==="login"?"current-password":"new-password"} minLength={8} placeholder="At least 8 characters" value={password} onChange={e=>setPassword(e.target.value)}/></label>
+      {notice&&<div className="formNotice">{notice}</div>}
       {error&&<div className="formError">{error}</div>}
       <button className="primaryWide" disabled={busy}>{busy?(mode==="signup"?"Creating your NEXA…":"Signing you in…"):(mode==="signup"?"Create my NEXA account":"Log in to NEXA")}<span>→</span></button>
     </form>
-    <div className="authLinks"><button onClick={()=>{setError("");setMode(mode==="login"?"signup":"login")}}>{mode==="login"?"Create an account":"Already have an account? Log in"}</button></div>
+    <div className="authLinks"><button onClick={()=>{setError("");setNotice("");setMode(mode==="login"?"signup":"login")}}>{mode==="login"?"Create an account":"Already have an account? Log in"}</button></div>
     <div className="authFooter"><span>Private by design</span><button onClick={()=>window.open("https://wa.me/2349042987385","_blank","noopener,noreferrer")}>NEXA Support</button></div>
   </div></main>;
 }
