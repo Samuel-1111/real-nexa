@@ -13,31 +13,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install dependencies
         run: npm install
-
       - name: Build web bundle
         run: npm run build
-
       - name: Add Android platform
         run: npx cap add android
-
       - name: Sync Capacitor
         run: npx cap sync android
-
+      - name: Prepare Android permissions
+        run: node scripts/prepare-android.mjs
       - name: Make Gradle executable
         run: chmod +x android/gradlew
-
       - name: Build debug APK
         run: cd android && ./gradlew assembleDebug --no-daemon
-
       - name: Upload NEXA APK
         uses: actions/upload-artifact@v4
         with:
