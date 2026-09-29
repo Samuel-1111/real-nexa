@@ -1,0 +1,92 @@
+name: NEXA Android APK Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/workflows/android-apk-release.yml'
+
+permissions:
+  contents: write
+
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+
+      - name: Prepare Capacitor web directory
+        run: |
+          mkdir -p out
+          printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><title>NEXA</title></head><body></body></html>' > out/index.html
+
+      - name: Configure production URL for Android
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'capacitor.config.ts';
+          let s = fs.readFileSync(p, 'utf8');
+          s = s.replace(/server:\s*\{[\s\S]*?\n\s*\},/, 'server: {\n    url: "https://real-nexa.vercel.app",\n    cleartext: false,\n    androidScheme: "https"\n  },');
+          fs.writeFileSync(p, s);
+          NODE
+
+      - name: Add Android platform
+        run: |
+          rm -rf android
+          npx cap add android
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Prepare Android configuration
+        run: |
+          if [ -f scripts/prepare-android.mjs ]; then node scripts/prepare-android.mjs; fi
+          chmod +x android/gradlew
+
+      - name: Build installable APK
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Verify APK exists
+        run: test -f android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXA-Android-APK-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nexa-apk-${{ github.run_number }}
+          name: NEXA Android APK ${{ github.run_number }}
+          generate_release_notes: true
+          body: |
+            NEXA Android APK build.
+            The APK loads the production NEXA application at https://real-nexa.vercel.app.
+          files: android/app/build/outputs/apk/debug/app-debug.apk
