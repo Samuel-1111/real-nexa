@@ -80,7 +80,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish APK release
+      - name: Publish versioned APK release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nexa-apk-${{ github.run_number }}
@@ -90,3 +90,18 @@ jobs:
             NEXA Android APK build.
             The APK loads the production NEXA application at https://real-nexa.vercel.app.
           files: android/app/build/outputs/apk/debug/app-debug.apk
+          fail_on_unmatched_files: true
+
+      - name: Create stable APK filename
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk NEXA.apk
+
+      - name: Publish stable APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nexa-latest
+          name: NEXA Latest Android APK
+          body: |
+            Latest NEXA Android APK. Install directly on an Android phone.
+          files: NEXA.apk
+          overwrite_files: true
+          fail_on_unmatched_files: true
