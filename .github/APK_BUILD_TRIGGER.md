@@ -1,0 +1,1 @@
+NEXA Android APK build trigger. The APK workflow packages the production NEXA application for direct Android installation.
