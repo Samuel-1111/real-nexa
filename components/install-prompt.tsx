@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 
 type BeforeInstallPromptEvent = Event & { prompt:()=>Promise<void>; userChoice:Promise<{outcome:"accepted"|"dismissed"}> };
-
 declare global { interface Window { __nexaInstallPrompt?: BeforeInstallPromptEvent; Capacitor?: {isNativePlatform?:()=>boolean}; } }
+
+const APK_URL = "https://github.com/Samuel-1111/real-nexa/releases/download/nexa-latest/NEXA.apk";
 
 export default function InstallPrompt(){
   const [deferred,setDeferred]=useState<BeforeInstallPromptEvent|null>(null);
   const [show,setShow]=useState(false);
   const [ios,setIos]=useState(false);
+  const [android,setAndroid]=useState(false);
   const [installed,setInstalled]=useState(false);
   const [guide,setGuide]=useState(false);
 
@@ -17,11 +19,10 @@ export default function InstallPrompt(){
     if(window.Capacitor?.isNativePlatform?.()) return;
     const standalone=window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & {standalone?:boolean}).standalone===true;
     if(standalone){setInstalled(true);return;}
-
-    const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent) && !("MSStream" in window);
-    setIos(isIOS);
-    if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>undefined);
-
+    const ua=navigator.userAgent.toLowerCase();
+    const isIOS=/iphone|ipad|ipod/.test(ua) && !("MSStream" in window);
+    setIos(isIOS); setAndroid(/android/.test(ua));
+    if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js",{scope:"/"}).catch(()=>undefined);
     const onBefore=(event:Event)=>{
       event.preventDefault();
       const installEvent=event as BeforeInstallPromptEvent;
@@ -33,9 +34,7 @@ export default function InstallPrompt(){
     const onInstalled=()=>{setInstalled(true);setShow(false);setDeferred(null);window.__nexaInstallPrompt=undefined;};
     window.addEventListener("beforeinstallprompt",onBefore);
     window.addEventListener("appinstalled",onInstalled);
-
-    // Give browsers that do not expose beforeinstallprompt a clear install path.
-    const timer=window.setTimeout(()=>setShow(true),900);
+    const timer=window.setTimeout(()=>setShow(true),1100);
     return()=>{window.clearTimeout(timer);window.removeEventListener("beforeinstallprompt",onBefore);window.removeEventListener("appinstalled",onInstalled);};
   },[]);
 
@@ -55,10 +54,13 @@ export default function InstallPrompt(){
   return <div style={{position:"fixed",left:12,right:12,bottom:"calc(12px + env(safe-area-inset-bottom))",zIndex:100000,maxWidth:560,margin:"0 auto",padding:16,borderRadius:24,background:"rgba(7,12,27,.98)",border:"1px solid rgba(255,255,255,.15)",boxShadow:"0 24px 80px rgba(0,0,0,.58)",color:"white",backdropFilter:"blur(18px)"}}>
     <div style={{display:"flex",gap:12,alignItems:"center"}}>
       <img src="/icon-192.svg" alt="NEXA" width="54" height="54" style={{borderRadius:16,flexShrink:0}}/>
-      <div style={{flex:1,minWidth:0}}><strong style={{display:"block",fontSize:16}}>Install NEXA</strong><span style={{display:"block",marginTop:4,fontSize:12,lineHeight:1.45,opacity:.72}}>Install NEXA on your phone for a full-screen app experience and its own Home Screen icon.</span></div>
-      <button onClick={()=>void install()} style={{border:0,borderRadius:14,padding:"12px 16px",fontWeight:850,background:"white",color:"#10131d",whiteSpace:"nowrap"}}>{deferred?"Install":"Install"}</button>
+      <div style={{flex:1,minWidth:0}}><strong style={{display:"block",fontSize:16}}>Get NEXA on your phone</strong><span style={{display:"block",marginTop:4,fontSize:12,lineHeight:1.45,opacity:.72}}>Use NEXA like a real mobile app with its own icon and full-screen experience.</span></div>
     </div>
-    {guide&&<div style={{marginTop:13,padding:13,borderRadius:16,background:"rgba(255,255,255,.06)",fontSize:12,lineHeight:1.55,opacity:.9}}>{ios?<>On iPhone: open this page in <b>Safari</b> → tap <b>Share</b> → <b>Add to Home Screen</b> → <b>Add</b>.</>:<>On Android: open the browser menu <b>⋮</b> → choose <b>Install app</b> or <b>Add to Home screen</b>. Chrome will show NEXA as an installable app when the browser supports the native prompt.</>}</div>}
+    <div style={{display:"grid",gridTemplateColumns:android?"1fr 1fr":"1fr",gap:8,marginTop:13}}>
+      <button onClick={()=>void install()} style={{border:0,borderRadius:14,padding:"13px 12px",fontWeight:850,background:"white",color:"#10131d"}}>Install NEXA</button>
+      {android&&<a href={APK_URL} style={{display:"grid",placeItems:"center",borderRadius:14,padding:"13px 12px",fontWeight:850,textDecoration:"none",background:"rgba(255,255,255,.10)",color:"white",border:"1px solid rgba(255,255,255,.14)"}}>Download APK</a>}
+    </div>
+    {guide&&<div style={{marginTop:13,padding:13,borderRadius:16,background:"rgba(255,255,255,.06)",fontSize:12,lineHeight:1.55,opacity:.9}}>{ios?<>On iPhone, Apple does not allow websites to force-install an app. Open this page in <b>Safari</b> → <b>Share</b> → <b>Add to Home Screen</b> → <b>Add</b>.</>:android?<>Your browser does not expose the automatic install prompt. You can use <b>Download APK</b> above for a true Android app, or open the browser menu <b>⋮</b> and choose <b>Install app</b> / <b>Add to Home screen</b> when available.</>:<>This browser does not expose a native install prompt. Use its browser menu and choose <b>Install</b> or <b>Add to Home screen</b> when available.</>}</div>}
     <button onClick={()=>setShow(false)} style={{marginTop:10,width:"100%",border:0,background:"transparent",color:"rgba(255,255,255,.48)",fontSize:12}}>Not now</button>
   </div>;
 }
