@@ -6,21 +6,72 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "fullscreen"],
+  "display_override": [
+    "standalone",
+    "fullscreen"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#020817",
   "theme_color": "#020817",
   "lang": "en-NG",
-  "categories": ["productivity", "utilities"],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "prefer_related_applications": false,
-  "launch_handler": {"client_mode": "navigate-existing"},
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
-    {"src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable"},
-    {"src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ],
   "shortcuts": [
-    {"name":"Talk to NEXA","short_name":"NEXA","url":"/home?tab=assistant","icons":[{"src":"/icon-192.svg","sizes":"192x192","type":"image/svg+xml"}]},
-    {"name":"Tasks","short_name":"Tasks","url":"/home?tab=tasks","icons":[{"src":"/icon-192.svg","sizes":"192x192","type":"image/svg+xml"}]},
-    {"name":"Reminders","short_name":"Reminders","url":"/home?tab=reminders","icons":[{"src":"/icon-192.svg","sizes":"192x192","type":"image/svg+xml"}]}
+    {
+      "name": "Talk to NEXA",
+      "short_name": "NEXA",
+      "url": "/home?tab=assistant",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "short_name": "Tasks",
+      "url": "/home?tab=tasks",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Reminders",
+      "short_name": "Reminders",
+      "url": "/home?tab=reminders",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
