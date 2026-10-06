@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 type BeforeInstallPromptEvent = Event & { prompt:()=>Promise<void>; userChoice:Promise<{outcome:"accepted"|"dismissed"}> };
 declare global { interface Window { __nexaInstallPrompt?: BeforeInstallPromptEvent; Capacitor?: {isNativePlatform?:()=>boolean}; } }
 
-const APK_URL = "https://github.com/Samuel-1111/real-nexa/releases/download/nexa-latest/NEXA.apk";
 
 export default function InstallPrompt(){
   const [deferred,setDeferred]=useState<BeforeInstallPromptEvent|null>(null);
@@ -19,6 +18,10 @@ export default function InstallPrompt(){
     if(window.Capacitor?.isNativePlatform?.()) return;
     const standalone=window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & {standalone?:boolean}).standalone===true;
     if(standalone){setInstalled(true);return;}
+    // Keep the first-time landing page clean. The install offer appears after
+    // the user advances to account/authentication or returns to the app.
+    const landingFirstVisit=window.location.pathname==="/" && localStorage.getItem("nexa_landing_seen")!=="1";
+    if(landingFirstVisit)return;
     const ua=navigator.userAgent.toLowerCase();
     const isIOS=/iphone|ipad|ipod/.test(ua) && !("MSStream" in window);
     setIos(isIOS); setAndroid(/android/.test(ua));
@@ -34,7 +37,7 @@ export default function InstallPrompt(){
     const onInstalled=()=>{setInstalled(true);setShow(false);setDeferred(null);window.__nexaInstallPrompt=undefined;};
     window.addEventListener("beforeinstallprompt",onBefore);
     window.addEventListener("appinstalled",onInstalled);
-    const timer=window.setTimeout(()=>setShow(true),1100);
+    const timer=window.setTimeout(()=>setShow(true),900);
     return()=>{window.clearTimeout(timer);window.removeEventListener("beforeinstallprompt",onBefore);window.removeEventListener("appinstalled",onInstalled);};
   },[]);
 
@@ -58,9 +61,9 @@ export default function InstallPrompt(){
     </div>
     <div style={{display:"grid",gridTemplateColumns:android?"1fr 1fr":"1fr",gap:8,marginTop:13}}>
       <button onClick={()=>void install()} style={{border:0,borderRadius:14,padding:"13px 12px",fontWeight:850,background:"white",color:"#10131d"}}>Install NEXA</button>
-      {android&&<a href={APK_URL} style={{display:"grid",placeItems:"center",borderRadius:14,padding:"13px 12px",fontWeight:850,textDecoration:"none",background:"rgba(255,255,255,.10)",color:"white",border:"1px solid rgba(255,255,255,.14)"}}>Download APK</a>}
+      
     </div>
-    {guide&&<div style={{marginTop:13,padding:13,borderRadius:16,background:"rgba(255,255,255,.06)",fontSize:12,lineHeight:1.55,opacity:.9}}>{ios?<>On iPhone, Apple does not allow websites to force-install an app. Open this page in <b>Safari</b> → <b>Share</b> → <b>Add to Home Screen</b> → <b>Add</b>.</>:android?<>Your browser does not expose the automatic install prompt. You can use <b>Download APK</b> above for a true Android app, or open the browser menu <b>⋮</b> and choose <b>Install app</b> / <b>Add to Home screen</b> when available.</>:<>This browser does not expose a native install prompt. Use its browser menu and choose <b>Install</b> or <b>Add to Home screen</b> when available.</>}</div>}
+    {guide&&<div style={{marginTop:13,padding:13,borderRadius:16,background:"rgba(255,255,255,.06)",fontSize:12,lineHeight:1.55,opacity:.9}}>{ios?<>On iPhone, Apple does not allow a website to force-install itself. Open this page in <b>Safari</b> → <b>Share</b> → <b>Add to Home Screen</b> → <b>Add</b>.</>:android?<>Your browser does not expose the automatic install prompt. Open the browser menu <b>⋮</b> and choose <b>Install app</b> or <b>Add to Home screen</b>. If this browser supports PWA installation, NEXA will be added as an app with its own icon and full-screen window.</>:<>This browser does not expose a native install prompt. Use its browser menu and choose <b>Install</b> or <b>Add to Home screen</b> when available.</>}</div>}
     <button onClick={()=>setShow(false)} style={{marginTop:10,width:"100%",border:0,background:"transparent",color:"rgba(255,255,255,.48)",fontSize:12}}>Not now</button>
   </div>;
 }
