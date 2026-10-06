@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-export default function manifest(): MetadataRoute.Manifest {
+// PWA install configuration for browser and Android app surfaces.\nexport default function manifest(): MetadataRoute.Manifest {
   return {
     name: "NEXA — Your Personal Assistant",
     short_name: "NEXA",
