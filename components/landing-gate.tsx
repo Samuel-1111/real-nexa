@@ -1,5 +1,11 @@
 "use client";
 
+declare global {
+  interface Window {
+    __nexaPromptInstall?: ()=>Promise<"accepted"|"dismissed"|"unavailable">;
+  }
+}
+
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
