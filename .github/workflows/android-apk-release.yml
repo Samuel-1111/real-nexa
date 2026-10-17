@@ -51,10 +51,22 @@ jobs:
           fs.writeFileSync(p, s);
           NODE
 
-      - name: Add Android platform
+      - name: Preserve NEXA native Android sources
+        run: |
+          mkdir -p /tmp/nexa-native
+          cp android/app/src/main/java/com/samzytechnology/nexa/MainActivity.kt /tmp/nexa-native/
+          cp android/app/src/main/java/com/samzytechnology/nexa/ReminderAlarmReceiver.kt /tmp/nexa-native/
+          cp android/app/src/main/res/drawable/ic_nexa.xml /tmp/nexa-native/
+
+      - name: Add Android platform and restore native NEXA activity
         run: |
           rm -rf android
           npx cap add android
+          find android/app/src/main/java -name MainActivity.java -delete
+          mkdir -p android/app/src/main/java/com/samzytechnology/nexa
+          cp /tmp/nexa-native/MainActivity.kt /tmp/nexa-native/ReminderAlarmReceiver.kt android/app/src/main/java/com/samzytechnology/nexa/
+          mkdir -p android/app/src/main/res/drawable
+          cp /tmp/nexa-native/ic_nexa.xml android/app/src/main/res/drawable/
 
       - name: Sync Capacitor
         run: npx cap sync android
