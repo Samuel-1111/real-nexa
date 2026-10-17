@@ -24,7 +24,9 @@ export default function InstallPrompt(){
   const [guide,setGuide]=useState(false);
 
   useEffect(()=>{
-    if(window.Capacitor?.isNativePlatform?.()) return;
+    // The installed NEXA Android APK opens the production app inside its own WebView.
+    // Never show a browser PWA installation prompt inside the already-installed APK.
+    if(window.Capacitor?.isNativePlatform?.() || /NEXA-Android\/2\.0/i.test(navigator.userAgent)) return;
 
     const standalone=window.matchMedia("(display-mode: standalone)").matches ||
       (navigator as Navigator & {standalone?:boolean}).standalone===true;
