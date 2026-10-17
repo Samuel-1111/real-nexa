@@ -24,6 +24,9 @@ if (fs.existsSync(icon)) {
   xml = xml.replace(/android:icon="@mipmap\/ic_launcher"/, 'android:icon="@drawable/ic_nexa"');
   xml = xml.replace(/android:roundIcon="@mipmap\/ic_launcher_round"/, 'android:roundIcon="@drawable/ic_nexa"');
 }
+xml = xml.replace(/<activity\\b[^>]*android:name="\\.MainActivity"[^>]*>/s, tag =>
+  tag.includes('android:screenOrientation=') ? tag : tag.replace(/>$/, ' android:screenOrientation="portrait">')
+);
 if (!xml.includes('android:name=".ReminderAlarmReceiver"')) {
   xml = xml.replace('</application>', '    <receiver android:name=".ReminderAlarmReceiver" android:exported="false" />\n    </application>');
 }
