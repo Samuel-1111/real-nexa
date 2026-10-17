@@ -54,26 +54,45 @@ class MainActivity : Activity() {
             setSupportZoom(false)
             userAgentString = userAgentString + " NEXA-Android/2.0"
         }
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-            WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_OFF)
+        // Optional WebView appearance support must never prevent the app from launching.
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_OFF)
+            }
+        } catch (_: Exception) {
+            // Use the system WebView default if this device does not support the feature reliably.
         }
-        textToSpeech = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                textToSpeech?.let { engine ->
-                    val nigeria = Locale("en", "NG")
-                    engine.language = if (engine.isLanguageAvailable(nigeria) >= TextToSpeech.LANG_AVAILABLE) nigeria else Locale.US
-                    engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                        override fun onStart(utteranceId: String?) = Unit
-                        override fun onDone(utteranceId: String?) {
-                            webView.post { webView.evaluateJavascript("window.onNexaSpeechFinished && window.onNexaSpeechFinished()", null) }
+        // Speech output is an enhancement; an unavailable TTS engine must not crash app startup.
+        try {
+            textToSpeech = TextToSpeech(this) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    try {
+                        textToSpeech?.let { engine ->
+                            val nigeria = Locale("en", "NG")
+                            engine.language = if (engine.isLanguageAvailable(nigeria) >= TextToSpeech.LANG_AVAILABLE) nigeria else Locale.US
+                            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                                override fun onStart(utteranceId: String?) = Unit
+                                override fun onDone(utteranceId: String?) {
+                                    if (::webView.isInitialized) webView.post {
+                                        webView.evaluateJavascript("window.onNexaSpeechFinished && window.onNexaSpeechFinished()", null)
+                                    }
+                                }
+                                override fun onError(utteranceId: String?) {
+                                    if (::webView.isInitialized) webView.post {
+                                        webView.evaluateJavascript("window.onNexaSpeechFinished && window.onNexaSpeechFinished()", null)
+                                    }
+                                }
+                            })
+                            textToSpeechReady = true
                         }
-                        override fun onError(utteranceId: String?) {
-                            webView.post { webView.evaluateJavascript("window.onNexaSpeechFinished && window.onNexaSpeechFinished()", null) }
-                        }
-                    })
-                    textToSpeechReady = true
+                    } catch (_: Exception) {
+                        textToSpeechReady = false
+                    }
                 }
             }
+        } catch (_: Exception) {
+            textToSpeechReady = false
+            textToSpeech = null
         }
         webView.addJavascriptInterface(NexaNativeBridge(this, this, alarmManager), "NexaNative")
         webView.webViewClient = object : WebViewClient() {
