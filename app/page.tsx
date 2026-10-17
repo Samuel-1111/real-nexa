@@ -138,7 +138,7 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
   useEffect(()=>{(async()=>{const data=await loadConversations();if(data?.[0]){setConversationId(data[0].id);await loadMessages(data[0].id);}})()},[userId]);
 
   function speak(reply:string, force=false) {
-    if((!voiceModeRef.current && !force) || typeof window==="undefined" || !("speechSynthesis" in window)) return;
+    if((!voiceModeRef.current && !force) || typeof window==="undefined") return;
     if(window.NexaNative?.speakText){
       window.onNexaSpeechFinished=()=>{
         window.onNexaSpeechFinished=undefined;
@@ -146,6 +146,10 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
       };
       if(window.NexaNative.speakText(reply)) return;
       window.onNexaSpeechFinished=undefined;
+    }
+    if(!("speechSynthesis" in window)) {
+      setVoiceError("Spoken responses are unavailable on this device. Check that Android Text-to-Speech is installed and enabled.");
+      return;
     }
     window.speechSynthesis.cancel();
     const utterance=new SpeechSynthesisUtterance(reply);
