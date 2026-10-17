@@ -20,11 +20,13 @@ declare global {
     webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
     NexaNative?: {
       startSpeechRecognition: () => void;
+      speakText?: (text: string) => boolean;
       scheduleReminder?: (title: string, triggerAtMillis: number) => boolean;
       cancelReminder?: (triggerAtMillis: number, title: string) => boolean;
     };
     onNexaSpeechResult?: (transcript:string) => void;
     onNexaSpeechError?: (message:string) => void;
+    onNexaSpeechFinished?: () => void;
   }
 }
 type SpeechRecognitionInstance = {
@@ -137,6 +139,14 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
 
   function speak(reply:string, force=false) {
     if((!voiceModeRef.current && !force) || typeof window==="undefined" || !("speechSynthesis" in window)) return;
+    if(window.NexaNative?.speakText){
+      window.onNexaSpeechFinished=()=>{
+        window.onNexaSpeechFinished=undefined;
+        if(voiceModeRef.current) window.setTimeout(()=>startVoice(),250);
+      };
+      if(window.NexaNative.speakText(reply)) return;
+      window.onNexaSpeechFinished=undefined;
+    }
     window.speechSynthesis.cancel();
     const utterance=new SpeechSynthesisUtterance(reply);
     utterance.rate=0.96; utterance.pitch=1.02; utterance.volume=1; utterance.onend=()=>{if(voiceModeRef.current) window.setTimeout(()=>startVoice(),250);};
