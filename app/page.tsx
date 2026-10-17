@@ -124,6 +124,7 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
   const [voiceMode,setVoiceMode]=useState(false);
   const [listening,setListening]=useState(false);
   const [voiceError,setVoiceError]=useState("");
+  const [speakingMessageId,setSpeakingMessageId]=useState<string|null>(null);
   const voiceModeRef=useRef(false);
 
   async function loadConversations() {
@@ -157,6 +158,30 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
     const voices=window.speechSynthesis.getVoices();
     const preferred=voices.find(v=>/^en/i.test(v.lang) && /natural|enhanced|neural|online/i.test(v.name)) || voices.find(v=>/^en/i.test(v.lang));
     if(preferred) utterance.voice=preferred;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function readMessage(message:Message) {
+    if(!("speechSynthesis" in window)) {
+      setVoiceError("Read aloud is not supported by this browser. Try Chrome on Android and check Text-to-Speech settings.");
+      return;
+    }
+    if(speakingMessageId===message.id) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance=new SpeechSynthesisUtterance(message.content);
+    utterance.rate=0.96;
+    utterance.pitch=1;
+    utterance.volume=1;
+    utterance.onend=()=>setSpeakingMessageId(null);
+    utterance.onerror=()=>setSpeakingMessageId(null);
+    const voices=window.speechSynthesis.getVoices();
+    const preferred=voices.find(v=>/^en/i.test(v.lang)&&/natural|enhanced|neural|online/i.test(v.name))||voices.find(v=>/^en/i.test(v.lang));
+    if(preferred) utterance.voice=preferred;
+    setSpeakingMessageId(message.id);
     window.speechSynthesis.speak(utterance);
   }
 
@@ -248,7 +273,7 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
         <div className="suggestionGrid">
           {["Plan my day","Create a reminder","Organize my tasks","Save a note"].map(s=><button key={s} onClick={()=>send(s)}>{s}<span>→</span></button>)}
         </div>
-      </div>:<div className="messageList">{messages.map(m=><div className={m.role==="user"?"userBubble":"aiBubble"} key={m.id}><small>{m.role==="user"?"You":"NEXA"}</small><div>{m.content}</div></div>)}{busy&&<div className="aiBubble typing"><small>NEXA</small><div>Thinking…</div></div>}</div>}
+      </div>:<div className="messageList">{messages.map(m=><div className={m.role==="user"?"userBubble":"aiBubble"} key={m.id}><small>{m.role==="user"?"You":"NEXA"}</small><div>{m.content}</div>{m.role==="assistant"&&<button type="button" className={speakingMessageId===m.id?"speakerReadButton isSpeaking":"speakerReadButton"} aria-label={speakingMessageId===m.id?"Stop reading response":"Read response aloud"} onClick={()=>readMessage(m)}>{speakingMessageId===m.id?"■ Stop reading":"◖)) Read aloud"}</button>}</div>)}{busy&&<div className="aiBubble typing"><small>NEXA</small><div>Thinking…</div></div>}</div>}
       {voiceError&&<div className="voiceError">{voiceError}</div>}
     </div>
     <div className="voiceDock">
