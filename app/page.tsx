@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import InstallPrompt from "@/components/install-prompt";
 
@@ -118,6 +118,7 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
   const [voiceMode,setVoiceMode]=useState(false);
   const [listening,setListening]=useState(false);
   const [voiceError,setVoiceError]=useState("");
+  const voiceModeRef=useRef(false);
 
   async function loadConversations() {
     const {data}=await supabase().from("conversations").select("id,title,updated_at,created_at").eq("user_id",userId).order("updated_at",{ascending:false}).limit(50);
@@ -130,18 +131,18 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
   }
   useEffect(()=>{(async()=>{const data=await loadConversations();if(data?.[0]){setConversationId(data[0].id);await loadMessages(data[0].id);}})()},[userId]);
 
-  function speak(reply:string) {
-    if(!voiceMode || typeof window==="undefined" || !("speechSynthesis" in window)) return;
+  function speak(reply:string, force=false) {
+    if((!voiceModeRef.current && !force) || typeof window==="undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance=new SpeechSynthesisUtterance(reply);
-    utterance.rate=0.96; utterance.pitch=1.02; utterance.volume=1; utterance.onend=()=>{if(voiceMode) window.setTimeout(()=>startVoice(),250);};
+    utterance.rate=0.96; utterance.pitch=1.02; utterance.volume=1; utterance.onend=()=>{if(voiceModeRef.current) window.setTimeout(()=>startVoice(),250);};
     const voices=window.speechSynthesis.getVoices();
     const preferred=voices.find(v=>/^en/i.test(v.lang) && /natural|enhanced|neural|online/i.test(v.name)) || voices.find(v=>/^en/i.test(v.lang));
     if(preferred) utterance.voice=preferred;
     window.speechSynthesis.speak(utterance);
   }
 
-  async function send(value=text) {
+  async function send(value=text, fromVoice=false) {
     const message=value.trim(); if(!message||busy) return;
     setText(""); setBusy(true); setVoiceError("");
     setMessages(m=>[...m,{id:crypto.randomUUID(),role:"user",content:message,created_at:new Date().toISOString()}]);
@@ -152,15 +153,16 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
     } else {
       if(data.conversation_id) setConversationId(data.conversation_id);
       setMessages(m=>[...m,{id:data.message_id||crypto.randomUUID(),role:"assistant",content:data.reply,created_at:new Date().toISOString()}]);
-      speak(data.reply);
+      speak(data.reply, fromVoice);
       await loadConversations();
       onChanged();
     }
     setBusy(false);
   }
 
-  function startVoice() {
+  async function startVoice() {
     setVoiceError("");
+    voiceModeRef.current=true;
     setVoiceMode(true);
     setListening(true);
 
@@ -171,7 +173,7 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
         window.onNexaSpeechResult = undefined;
         window.onNexaSpeechError = undefined;
         setListening(false);
-        if (transcript.trim()) void send(transcript);
+        if (transcript.trim()) void send(transcript,true);
         else setVoiceError("NEXA did not hear any words. Please try again.");
       };
       window.onNexaSpeechError = (message:string) => {
@@ -193,10 +195,25 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
     if(!Recognition){ setListening(false);setVoiceError("Voice input is not supported in this browser. Try the NEXA Android app or Chrome on Android."); return; }
     const recognition=new Recognition();
     recognition.lang="en-NG"; recognition.interimResults=false; recognition.continuous=false;
-    recognition.onresult=(event)=>{ const transcript=event.results[0][0].transcript; setListening(false); void send(transcript); };
+    recognition.onresult=(event)=>{ const transcript=event.results[0][0].transcript; setListening(false); void send(transcript,true); };
     recognition.onend=()=>setListening(false);
     recognition.onerror=(event)=>{setListening(false);setVoiceError(event.error==="not-allowed"?"Microphone permission was denied. Allow microphone access in the browser.":`Voice input failed (${event.error}). Please try again.`);};
-    try { recognition.start(); } catch { setListening(false);setVoiceError("NEXA could not start voice input. Please try again."); }
+    try {
+      if(!navigator.mediaDevices?.getUserMedia) {
+        setListening(false);
+        setVoiceError("This browser cannot request microphone access. Open NEXA in Chrome or use the NEXA Android app.");
+        return;
+      }
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      stream.getTracks().forEach(track=>track.stop());
+      recognition.start();
+    } catch(error) {
+      setListening(false);
+      const name=error instanceof Error?error.name:"";
+      setVoiceError(name==="NotAllowedError"||name==="PermissionDeniedError"||name==="SecurityError"
+        ?"Microphone access is blocked. In Chrome, tap the site controls beside the address, open Permissions, allow Microphone, then reload NEXA and try again."
+        :"NEXA could not access the microphone. Check that no other app is using it, then try again.");
+    }
   }
 
   async function selectConversation(id:string) { setConversationId(id);setShowHistory(false);await loadMessages(id); }
@@ -218,7 +235,7 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
     </div>
     <div className="voiceDock">
       <button className={listening?"voiceButton listening":"voiceButton"} onClick={startVoice}><span>◉</span><div><strong>{listening?"Listening…":"Talk to NEXA"}</strong><small>Voice conversation</small></div></button>
-      <button className={voiceMode?"voiceToggle active":"voiceToggle"} onClick={()=>setVoiceMode(v=>!v)}>{voiceMode?"🔊":"🔈"}</button>
+      <button className={voiceMode?"voiceToggle active":"voiceToggle"} onClick={()=>setVoiceMode(v=>{const next=!v;voiceModeRef.current=next;if(!next&&"speechSynthesis" in window)window.speechSynthesis.cancel();return next;})}>{voiceMode?"🔊":"🔈"}</button>
     </div>
     <div className="composer"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Message NEXA…" onKeyDown={e=>{if(e.key==="Enter")void send()}}/><button onClick={()=>void send()} disabled={busy}>➤</button></div>
     {showHistory&&<div className="sheetBackdrop" onMouseDown={()=>setShowHistory(false)}><aside className="sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheetHead"><h3>Chat history</h3><button onClick={()=>setShowHistory(false)}>×</button></div><button className="newChatRow" onClick={newConversation}>＋ New conversation</button><div className="historyList">{conversations.length===0?<div className="emptyState">No conversations yet.</div>:conversations.map(c=><button className={conversationId===c.id?"historyRow active":"historyRow"} key={c.id} onClick={()=>void selectConversation(c.id)}><div><strong>{c.title||"New conversation"}</strong><small>{formatDate(c.updated_at)}</small></div><span>›</span></button>)}</div></aside></div>}
