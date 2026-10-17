@@ -6,8 +6,11 @@ import android.app.Activity
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -17,10 +20,17 @@ import android.webkit.WebViewClient
 import androidx.core.content.ContextCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var alarmManager: AlarmManager
+    private var pendingSpeechRequest = false
+
+    companion object {
+        private const val SPEECH_REQUEST_CODE = 4107
+        private const val MICROPHONE_PERMISSION_REQUEST_CODE = 4108
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,14 +52,14 @@ class MainActivity : Activity() {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
             WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_OFF)
         }
-        webView.addJavascriptInterface(NexaNativeBridge(this, alarmManager), "NexaNative")
+        webView.addJavascriptInterface(NexaNativeBridge(this, this, alarmManager), "NexaNative")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = false
         }
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread {
-                    // Microphone/camera access is granted only to an explicit WebView request.
+                    // Native speech recognition uses the Android runtime permission below.
                     request.grant(request.resources)
                 }
             }
@@ -58,12 +68,89 @@ class MainActivity : Activity() {
         webView.loadUrl("https://real-nexa.vercel.app/welcome")
     }
 
+    fun startNativeSpeechRecognition() {
+        runOnUiThread {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                pendingSpeechRequest = true
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MICROPHONE_PERMISSION_REQUEST_CODE)
+                return@runOnUiThread
+            }
+            launchSpeechRecognizer()
+        }
+    }
+
+    private fun launchSpeechRecognizer() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            sendSpeechError("Speech recognition is unavailable on this device. Install or enable a speech recognition service and try again.")
+            return
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-NG")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-NG")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to NEXA")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        try {
+            startActivityForResult(intent, SPEECH_REQUEST_CODE)
+        } catch (_: Exception) {
+            sendSpeechError("NEXA could not open the device speech recognizer. Check that a speech service is enabled.")
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != MICROPHONE_PERMISSION_REQUEST_CODE) return
+        val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+        if (granted && pendingSpeechRequest) {
+            pendingSpeechRequest = false
+            launchSpeechRecognizer()
+        } else {
+            pendingSpeechRequest = false
+            sendSpeechError("Microphone permission was denied. Allow microphone access in Android settings to use voice input.")
+        }
+    }
+
+    @Deprecated("Deprecated in Android, retained for compatibility with the current Activity implementation")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != SPEECH_REQUEST_CODE) return
+        if (resultCode == RESULT_OK) {
+            val transcript = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.trim()
+            if (!transcript.isNullOrEmpty()) {
+                webView.post {
+                    webView.evaluateJavascript("window.onNexaSpeechResult && window.onNexaSpeechResult(${JSONObject.quote(transcript)})", null)
+                }
+            } else {
+                sendSpeechError("NEXA did not hear any words. Please try speaking again.")
+            }
+        } else {
+            sendSpeechError("Voice input stopped. Please try again.")
+        }
+    }
+
+    private fun sendSpeechError(message: String) {
+        if (!::webView.isInitialized) return
+        webView.post {
+            webView.evaluateJavascript("window.onNexaSpeechError && window.onNexaSpeechError(${JSONObject.quote(message)})", null)
+        }
+    }
+
     override fun onBackPressed() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
 
-class NexaNativeBridge(private val context: Context, private val alarmManager: AlarmManager) {
+class NexaNativeBridge(
+    private val context: Context,
+    private val activity: MainActivity,
+    private val alarmManager: AlarmManager
+) {
+    @JavascriptInterface
+    fun startSpeechRecognition() {
+        activity.startNativeSpeechRecognition()
+    }
+
     @JavascriptInterface
     fun scheduleReminder(title: String, triggerAtMillis: Long): Boolean {
         if (triggerAtMillis <= System.currentTimeMillis()) return false
