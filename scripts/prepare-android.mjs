@@ -37,8 +37,8 @@ for (const gradleName of ['build.gradle.kts', 'build.gradle']) {
   if (!fs.existsSync(gradle)) continue;
   let g = fs.readFileSync(gradle, 'utf8');
   const deps = gradleName.endsWith('.kts')
-    ? ['implementation("androidx.core:core-ktx:1.17.0")', 'implementation("androidx.webkit:webkit:1.14.0")']
-    : ["implementation 'androidx.core:core-ktx:1.17.0'", "implementation 'androidx.webkit:webkit:1.14.0'"];
+    ? ['implementation("androidx.core:core-ktx:1.15.0")', 'implementation("androidx.webkit:webkit:1.12.1")']
+    : ["implementation 'androidx.core:core-ktx:1.15.0'", "implementation 'androidx.webkit:webkit:1.12.1'"];
   for (const dep of deps) {
     if (!g.includes(dep)) {
       if (!g.includes('dependencies {')) throw new Error('Could not find dependencies block in ' + gradleName);
