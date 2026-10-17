@@ -3,15 +3,6 @@
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-declare global {
-  interface Window {
-    NexaNative?: {
-      scheduleReminder?: (title: string, triggerAtMillis: number) => boolean;
-      cancelReminder?: (triggerAtMillis: number, title: string) => boolean;
-    };
-  }
-}
-
 export default function NativeReminderSync() {
   useEffect(() => {
     if (!/NEXA-Android\//i.test(navigator.userAgent) || !window.NexaNative?.scheduleReminder) return;
