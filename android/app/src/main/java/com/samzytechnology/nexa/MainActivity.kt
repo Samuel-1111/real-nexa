@@ -11,6 +11,8 @@ import android.hardware.camera2.CameraManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -21,11 +23,14 @@ import androidx.core.content.ContextCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONObject
+import java.util.Locale
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var alarmManager: AlarmManager
     private var pendingSpeechRequest = false
+    private var textToSpeech: TextToSpeech? = null
+    @Volatile private var textToSpeechReady = false
 
     companion object {
         private const val SPEECH_REQUEST_CODE = 4107
@@ -52,6 +57,24 @@ class MainActivity : Activity() {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
             WebSettingsCompat.setForceDark(webView.settings, WebSettingsCompat.FORCE_DARK_OFF)
         }
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech?.let { engine ->
+                    val nigeria = Locale("en", "NG")
+                    engine.language = if (engine.isLanguageAvailable(nigeria) >= TextToSpeech.LANG_AVAILABLE) nigeria else Locale.US
+                    engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) = Unit
+                        override fun onDone(utteranceId: String?) {
+                            webView.post { webView.evaluateJavascript("window.onNexaSpeechFinished && window.onNexaSpeechFinished()", null) }
+                        }
+                        override fun onError(utteranceId: String?) {
+                            webView.post { webView.evaluateJavascript("window.onNexaSpeechFinished && window.onNexaSpeechFinished()", null) }
+                        }
+                    })
+                    textToSpeechReady = true
+                }
+            }
+        }
         webView.addJavascriptInterface(NexaNativeBridge(this, this, alarmManager), "NexaNative")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = false
@@ -66,6 +89,17 @@ class MainActivity : Activity() {
         }
         // No background "Hey NEXA" listener and no foreground microphone service.
         webView.loadUrl("https://real-nexa.vercel.app/welcome")
+    }
+
+    fun speakNative(text: String): Boolean {
+        val engine = textToSpeech
+        if (!textToSpeechReady || engine == null || text.isBlank()) return false
+        runOnUiThread {
+            if (textToSpeechReady) {
+                engine.speak(text.take(4000), TextToSpeech.QUEUE_FLUSH, null, "nexa-${System.currentTimeMillis()}")
+            }
+        }
+        return true
     }
 
     fun startNativeSpeechRecognition() {
@@ -136,6 +170,13 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onDestroy() {
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+        super.onDestroy()
+    }
+
     override fun onBackPressed() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
@@ -146,6 +187,9 @@ class NexaNativeBridge(
     private val activity: MainActivity,
     private val alarmManager: AlarmManager
 ) {
+    @JavascriptInterface
+    fun speakText(text: String): Boolean = activity.speakNative(text)
+
     @JavascriptInterface
     fun startSpeechRecognition() {
         activity.startNativeSpeechRecognition()
