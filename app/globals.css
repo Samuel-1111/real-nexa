@@ -180,3 +180,8 @@ input,textarea{color:var(--text)}
 @media(max-width:480px){.authShell{padding:0}.authCard{width:100%;min-height:100dvh;border:0;border-radius:0;box-shadow:none;padding:56px 22px 28px}}
 
 html[data-theme="soft"] .appPhone{background:#0a1020}html[data-theme="soft"] .bottomNav{background:#071225f5}
+
+/* Per-response text-to-speech control */
+.speakerReadButton{display:inline-flex;align-items:center;gap:7px;margin-top:12px;padding:8px 12px;border:1px solid rgba(92,173,255,.34);border-radius:999px;background:rgba(61,124,255,.10);color:#a9d8ff;font-size:12px;font-weight:650;cursor:pointer;transition:background .18s ease,border-color .18s ease;}
+.speakerReadButton:hover,.speakerReadButton:focus-visible{background:rgba(61,124,255,.2);border-color:rgba(92,173,255,.7);outline:none;}
+.speakerReadButton.isSpeaking{color:#fff;border-color:rgba(59,198,255,.7);background:rgba(59,198,255,.18);}
