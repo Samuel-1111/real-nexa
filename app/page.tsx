@@ -18,7 +18,11 @@ declare global {
   interface Window {
     SpeechRecognition?: new () => SpeechRecognitionInstance;
     webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
-    NexaNative?: { startSpeechRecognition: () => void };
+    NexaNative?: {
+      startSpeechRecognition: () => void;
+      scheduleReminder?: (title: string, triggerAtMillis: number) => boolean;
+      cancelReminder?: (triggerAtMillis: number, title: string) => boolean;
+    };
     onNexaSpeechResult?: (transcript:string) => void;
     onNexaSpeechError?: (message:string) => void;
   }
