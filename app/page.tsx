@@ -18,6 +18,9 @@ declare global {
   interface Window {
     SpeechRecognition?: new () => SpeechRecognitionInstance;
     webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+    NexaNative?: { startSpeechRecognition: () => void };
+    onNexaSpeechResult?: (transcript:string) => void;
+    onNexaSpeechError?: (message:string) => void;
   }
 }
 type SpeechRecognitionInstance = {
@@ -157,15 +160,43 @@ function Assistant({userId,onChanged}:{userId:string;onChanged:()=>void}) {
   }
 
   function startVoice() {
+    setVoiceError("");
+    setVoiceMode(true);
+    setListening(true);
+
+    // The Android APK runs inside a WebView, where Web Speech Recognition is not
+    // consistently available. Prefer NEXA's native Android speech-recognition bridge.
+    if (window.NexaNative?.startSpeechRecognition) {
+      window.onNexaSpeechResult = (transcript:string) => {
+        window.onNexaSpeechResult = undefined;
+        window.onNexaSpeechError = undefined;
+        setListening(false);
+        if (transcript.trim()) void send(transcript);
+        else setVoiceError("NEXA did not hear any words. Please try again.");
+      };
+      window.onNexaSpeechError = (message:string) => {
+        window.onNexaSpeechResult = undefined;
+        window.onNexaSpeechError = undefined;
+        setListening(false);
+        setVoiceError(message);
+      };
+      try {
+        window.NexaNative.startSpeechRecognition();
+      } catch {
+        setListening(false);
+        setVoiceError("NEXA could not start voice input. Check microphone permission and try again.");
+      }
+      return;
+    }
+
     const Recognition=window.SpeechRecognition || window.webkitSpeechRecognition;
-    if(!Recognition){ setVoiceError("Voice input is not supported in this browser. Use Chrome on Android or Safari on iPhone."); return; }
-    setVoiceError(""); setVoiceMode(true); setListening(true);
+    if(!Recognition){ setListening(false);setVoiceError("Voice input is not supported in this browser. Try the NEXA Android app or Chrome on Android."); return; }
     const recognition=new Recognition();
     recognition.lang="en-NG"; recognition.interimResults=false; recognition.continuous=false;
     recognition.onresult=(event)=>{ const transcript=event.results[0][0].transcript; setListening(false); void send(transcript); };
     recognition.onend=()=>setListening(false);
-    recognition.onerror=(event)=>{setListening(false);setVoiceError(event.error==="not-allowed"?"Microphone permission was denied. Allow microphone access in the browser.":"Voice input stopped. Please try again.");};
-    recognition.start();
+    recognition.onerror=(event)=>{setListening(false);setVoiceError(event.error==="not-allowed"?"Microphone permission was denied. Allow microphone access in the browser.":`Voice input failed (${event.error}). Please try again.`);};
+    try { recognition.start(); } catch { setListening(false);setVoiceError("NEXA could not start voice input. Please try again."); }
   }
 
   async function selectConversation(id:string) { setConversationId(id);setShowHistory(false);await loadMessages(id); }
